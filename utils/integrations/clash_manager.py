@@ -85,6 +85,8 @@ def deploy_clash_pool(count):
 
 def patch_and_update(url, target):
     client = get_client()
+    if not client:
+        return False, "Docker未就绪，请先启动 Docker Desktop 后再订阅更新"
     try:
         headers = {
             "User-Agent": "Clash-meta",
@@ -95,6 +97,8 @@ def patch_and_update(url, target):
         raw_yaml = yaml.safe_load(r.text)
 
         conts = client.containers.list(all=True, filters={"name": "clash_"})
+        if not conts:
+            return False, "未发现任何 clash_* 实例，请先点击“同步实例”创建容器"
         indices = range(1, len(conts) + 1) if target == 'all' else [int(target)]
 
         for i in indices:

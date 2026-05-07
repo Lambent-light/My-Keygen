@@ -348,6 +348,16 @@ CLUSTER_SECRET: str = "wenfxl666"
 TEMPORAM_COOKIE: str = ""
 FVIA_TOKEN: str = ""
 TMAILOR_CURRENT_TOKEN: str = ""
+AWAMAIL_CF_CLEARANCE: str = ""
+AWAMAIL_COOKIE: str = ""
+EMAILGENERATOR_ORG_CF_CLEARANCE: str = ""
+EMAILGENERATOR_ORG_COOKIE: str = ""
+EMAILGENERATOR_ORG_USER_AGENT: str = ""
+EMAILGENERATOR_ORG_CUSTOM_NAME: str = ""
+EMAILGENERATOR_ORG_CUSTOM_DOMAIN: str = ""
+DROPMAIL_TOKEN: str = ""
+EMAILNATOR_COOKIE: str = ""
+MAILSAC_API_KEY: str = ""
 REG_MODE: str = "protocol"
 DB_TYPE: str = "sqlite"
 MYSQL_CFG: dict = {}
@@ -432,6 +442,11 @@ def reload_all_configs(new_config_dict=None):
     global TEMPORAM_COOKIE
     global TMAILOR_CURRENT_TOKEN
     global FVIA_TOKEN
+    global AWAMAIL_CF_CLEARANCE, AWAMAIL_COOKIE
+    global EMAILGENERATOR_ORG_CF_CLEARANCE, EMAILGENERATOR_ORG_COOKIE
+    global EMAILGENERATOR_ORG_USER_AGENT, EMAILGENERATOR_ORG_CUSTOM_NAME, EMAILGENERATOR_ORG_CUSTOM_DOMAIN
+    global DROPMAIL_TOKEN, EMAILNATOR_COOKIE
+    global MAILSAC_API_KEY
     global DUCKMAIL_API_URL, DUCKMAIL_DOMAIN, DUCKMAIL_MODE, DUCK_API_TOKEN, DUCK_COOKIE, DUCK_OFFICIAL_API_BASE
     global DUCKMAIL_FORWARD_MODE, DUCKMAIL_FORWARD_EMAIL
     global DUCK_USE_PROXY
@@ -831,6 +846,27 @@ def reload_all_configs(new_config_dict=None):
 
     _tmailor = _c.get("tmailor", {})
     TMAILOR_CURRENT_TOKEN = str(_tmailor.get("current_token") or "").strip()
+
+    _awamail = _c.get("awamail", {})
+    AWAMAIL_CF_CLEARANCE = str(_awamail.get("cf_clearance") or "").strip()
+    AWAMAIL_COOKIE = str(_awamail.get("cookie") or "").strip()
+
+    _emailgenerator_org = _c.get("emailgenerator_org", {})
+    EMAILGENERATOR_ORG_CF_CLEARANCE = str(_emailgenerator_org.get("cf_clearance") or "").strip()
+    EMAILGENERATOR_ORG_COOKIE = str(_emailgenerator_org.get("cookie") or "").strip()
+    EMAILGENERATOR_ORG_USER_AGENT = str(_emailgenerator_org.get("user_agent") or "").strip()
+    EMAILGENERATOR_ORG_CUSTOM_NAME = str(_emailgenerator_org.get("custom_name") or "").strip()
+    EMAILGENERATOR_ORG_CUSTOM_DOMAIN = str(_emailgenerator_org.get("custom_domain") or "").strip()
+
+    _dropmail = _c.get("dropmail", {})
+    DROPMAIL_TOKEN = str(_dropmail.get("token") or "").strip()
+
+    _emailnator = _c.get("emailnator", {})
+    EMAILNATOR_COOKIE = str(_emailnator.get("cookie") or "").strip()
+
+    _mailsac = _c.get("mailsac", {})
+    MAILSAC_API_KEY = str(_mailsac.get("api_key") or "").strip()
+
 
     _fvia = _c.get("fvia", {})
     FVIA_TOKEN = str(_fvia.get("token") or "").strip()
