@@ -139,6 +139,68 @@ gmail_oauth_mode:
   suffix_mode: "mystic"      # fixed (固定长度) / range (随机范围) / mystic (高拟真词库)
   suffix_len_min: 8
   suffix_len_max: 12
+# [TempInbox.xyz 小众临时邮箱] - 零配置，选中即用
+# email_api_mode: "tempinbox"
+
+# [Awamail temporary mailbox] - pure requests mode, requires cf_clearance cookie copied once from browser
+# email_api_mode: "awamail"
+awamail:
+  cf_clearance: ""
+  cookie: ""   # optional: paste full Cookie header here; if set, will be used together with cf_clearance
+
+# [EmailGenerator.org temporary mailbox] - pure requests mode, requires cf_clearance; recommend also filling browser User-Agent
+# email_api_mode: "emailgenerator_org"
+emailgenerator_org:
+  cf_clearance: ""
+  cookie: ""          # optional: paste full Cookie header here
+  user_agent: ""      # optional but recommended: copy browser navigator.userAgent when obtaining cf_clearance
+  custom_name: ""     # optional: custom mailbox username, e.g. mytest123
+  custom_domain: "grnail.cam"
+
+# [EmailMux temporary mailbox] - zero config, uses public web endpoints, subject to daily request quota
+# email_api_mode: "emailmux"
+
+# [EmailToolHub Inbox Checker] - zero config, shared public test mailbox pool
+# email_api_mode: "emailtoolhub"
+
+# [DropMail.me 临时邮箱] - 需要免费 af_ token
+# email_api_mode: "dropmail"
+dropmail:
+  token: ''
+
+# [Emailnator Gmail 临时邮箱] - 需要浏览器 Cookie
+# email_api_mode: "emailnator"
+emailnator:
+  cookie: ''
+
+# [Maildrop.cc 临时邮箱] - 零配置，公共收件箱，无需认证
+# email_api_mode: "maildrop"
+
+# [Mail.gw 临时邮箱] - 零配置，Hydra REST API，与mail.tm互为备份
+# email_api_mode: "mailgw"
+
+# [Mailsac.com 临时邮箱] - 公共收件箱，可选填API Key解锁私有功能
+# email_api_mode: "mailsac"
+mailsac:
+  api_key: ''
+
+# [GuerrillaMail 临时邮箱] - 老牌，稳定，全公开，免认证
+# email_api_mode: "guerrilla"
+
+# [TempMail.Plus 临时邮箱] - 优质冷门域名，无代码极简配
+# email_api_mode: "tempmail_plus"
+
+# [InboxKitten 临时邮箱] - 免费基于 Mailgun 的开源邮局
+# email_api_mode: "inboxkitten"
+
+# [Mail.td 临时邮箱] - 极冷门域名，自动 PoW + JWT，无需任何配置
+# email_api_mode: "mailtd"
+
+# [Moakt.com 临时邮箱] - REST JSON API，tmpbox/disbox域名，零配置
+# email_api_mode: "moakt"
+
+# [Mail.tm 临时邮箱] - 与 Mail.gw 同后端不同域名，JWT鉴权，零配置
+# email_api_mode: "mailtm"
 
 # [代理配置]
 # openai注册时代理地址，例子：http://127.0.0.1:7897。如果是国外服务器此项可以不填

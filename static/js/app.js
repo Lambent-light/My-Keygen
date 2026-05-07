@@ -337,7 +337,46 @@ createApp({
 				// { id: 'cf_routes', name: 'CF 路由', icon: '🌍' },
 
             ],
-			cfGlobalStatus: null,
+            showEmailModeDropdown: false,
+            emailModeOptions: [
+                { value: 'cloudflare_temp_email', label: 'cloudflare_temp_email (CF 临时邮箱)' },
+                { value: 'imap', label: 'imap (直连收件箱)' },
+                { value: 'local_microsoft', label: '本地微软邮箱库' },
+                { value: 'gmail_fission', label: 'Gmail OAuth 裂变' },
+                { value: 'Gmail_OAuth', label: 'Gmail_OAuth 授权 (CF 转发 Gmail 直接选此模式收件)' },
+                { value: 'awamail', label: 'Awamail (纯 requests + cf_clearance)' },
+                { value: 'emailgenerator_org', label: 'EmailGenerator.org (纯 requests + cf_clearance)' },
+                { value: 'emailmux', label: 'EmailMux (公开接口临时邮箱)' },
+                { value: 'emailtoolhub', label: 'EmailToolHub Inbox Checker (共享测试池)' },
+                { value: 'freemail', label: 'freemail' },
+                { value: 'cloudmail', label: 'cloudmail' },
+                { value: 'mail_curl', label: 'mail_curl' },
+                { value: 'luckmail', label: 'luckmail (LuckMail 接码)' },
+                { value: 'tempmail', label: 'Tempmail.lol' },
+                { value: 'tempmail_org', label: 'tempmail_org' },
+                { value: 'duckmail', label: 'duckmail (DuckMail 鸭子邮箱)' },
+                { value: 'generator_email', label: 'generator_email' },
+                { value: 'temporam', label: 'Temporam.com (需填写 Cookie)' },
+                { value: 'tmailor', label: 'Tmailor.com (需填写 Token)' },
+                { value: 'fvia', label: 'FviaInboxes (需填写 Authorization)' },
+                { value: 'inboxes', label: 'Inboxes.com' },
+                { value: 'temporarymail', label: 'TemporaryMail.com' },
+                { value: 'tempinbox', label: 'TempInbox.xyz (零配置·小众)' },
+                { value: 'dropmail', label: 'DropMail.me (GraphQL·需 Token)' },
+                { value: 'emailnator', label: 'Emailnator (Gmail·需 Cookie)' },
+                { value: 'maildrop', label: 'Maildrop.cc (零配置·公共收件箱)' },
+                { value: 'mailgw', label: 'Mail.gw (零配置·Hydra API)' },
+                { value: 'mailsac', label: 'Mailsac.com (可选 Key·公共收件箱)' },
+                { value: 'guerrilla', label: 'GuerrillaMail (零配置·老牌公开)' },
+                { value: 'tempmail_plus', label: 'TempMail.Plus (零配置·优质极简)' },
+                { value: 'inboxkitten', label: 'InboxKitten (免费开源后端)' },
+                { value: 'mailtd', label: 'Mail.td (PoW·冷门域名)' },
+                { value: 'moakt', label: 'Moakt.com (REST·tmpbox 域名)' },
+                { value: 'mailtm', label: 'Mail.tm (JWT·零配置)' }
+            ],
+            cfGlobalStatus: null,
+
+
 			isLoadingSync: false,
             luckmailManualQty: 1,
             luckmailManualAutoTag: false,
@@ -438,7 +477,9 @@ createApp({
                 db_pass: false,
                 master_rt: false,
                 image2api_url: true,
-                image2api_key: false
+                image2api_key: false,
+                dropmail: false,
+                emailnator: false
             },
 
             toasts: [],
@@ -1426,6 +1467,15 @@ createApp({
                 this.config.cluster_upload_timeout_sec = Math.max(15, Math.min(3600, clusterUploadTimeout));
                 if (!this.config.temporam) {
                     this.config.temporam = { cookie: '' };
+                }
+                if (!this.config.awamail) {
+                    this.config.awamail = { cf_clearance: '', cookie: '' };
+                }
+                if (!this.config.dropmail) {
+                    this.config.dropmail = { token: '' };
+                }
+                if (!this.config.emailnator) {
+                    this.config.emailnator = { cookie: '' };
                 }
                 if (!this.config.reg_mode) {
                         this.config.reg_mode = 'protocol';

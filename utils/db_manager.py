@@ -70,6 +70,7 @@ def execute_sql(cursor, sql: str, params=()):
 
     return cursor.execute(sql, params)
 
+
 def init_db():
     """初始化数据库，自动适应双引擎建表"""
     with get_db_conn(is_write=True) as conn:
@@ -151,6 +152,7 @@ def init_db():
     print(f"[{cfg.ts()}] [系统] 数据库模块初始化完成 (引擎: {DB_TYPE.upper()})")
 
 
+
 def save_account_to_db(email: str, password: str, token_json_str: str) -> bool:
     try:
         with get_db_conn(is_write=True) as conn:
@@ -205,10 +207,10 @@ def get_tokens_by_emails(emails: list) -> list:
                 if r[0]:
                     try:
                         export_list.append(json.loads(r[0]))
-                    except:
+                    except Exception:
                         pass
             return export_list
-    except Exception as e:
+    except Exception:
         return []
 
 
@@ -386,7 +388,6 @@ def get_all_accounts_with_token(limit: int = 10000, offset: int = 0) -> list:
     except Exception as e:
         print(f"[{cfg.ts()}] [ERROR] 提取完整账号数据失败: {e}")
         return []
-
 
 def create_cluster_sync_task(task_id: str, node_name: str, file_path: str, file_size: int, total_count: int, max_retries: int, file_sha256: str = "") -> bool:
     try:
@@ -598,7 +599,6 @@ def get_cluster_sync_retry_state(task_id: str) -> tuple[int, int]:
         print(f"[{cfg.ts()}] [ERROR] 获取同步任务重试状态失败: {e}")
     return 0, 0
 
-
 def import_local_mailboxes(mailboxes_data: list) -> int:
     count = 0
     try:
@@ -612,7 +612,7 @@ def import_local_mailboxes(mailboxes_data: list) -> int:
                     ''', (mb['email'], mb['password'], mb.get('client_id', ''), mb.get('refresh_token', '')))
                     if c.rowcount > 0:
                         count += 1
-                except:
+                except Exception:
                     pass
     except Exception as e:
         print(f"[{cfg.ts()}] [ERROR] 导入邮箱库失败: {e}")
@@ -650,19 +650,20 @@ def get_local_mailboxes_page(page: int = 1, page_size: int = 50, search: str = N
 
             return {"total": total, "data": [dict(r) for r in rows]}
     except Exception as e:
-        print(f"[ERROR] 分页获取邮箱库列表失败: {e}")
+        print(f"[{cfg.ts()}] [ERROR] 分页获取邮箱库列表失败: {e}")
         return {"total": 0, "data": []}
 
 
 def delete_local_mailboxes(ids: list) -> bool:
-    if not ids: return True
+    if not ids:
+        return True
     try:
         with get_db_conn(is_write=True) as conn:
             c = get_cursor(conn)
             placeholders = ','.join(['?'] * len(ids))
             execute_sql(c, f"DELETE FROM local_mailboxes WHERE id IN ({placeholders})", tuple(ids))
             return True
-    except Exception as e:
+    except Exception:
         return False
 
 
@@ -696,6 +697,9 @@ def get_and_lock_unused_local_mailbox() -> dict:
         print(f"[{cfg.ts()}] [ERROR] 提取本地邮箱失败: {e}")
         return None
 
+def get_one_unused_local_mailbox() -> dict:
+    """兼容旧调用名，统一走带锁版本。"""
+    return get_and_lock_unused_local_mailbox()
 
 def get_mailbox_for_pool_fission() -> dict:
     """带重试优先级的并发取号"""

@@ -221,7 +221,7 @@ class LocalMicrosoftService:
             if new_rt and new_rt != refresh_token and mailbox.get("id") != "fission":
                 try:
                     db_manager.update_local_mailbox_refresh_token(mailbox["email"], new_rt)
-                except:
+                except Exception:
                     pass
                 mailbox["refresh_token"] = new_rt
             return data["access_token"]

@@ -809,6 +809,8 @@ def deploy_clash_pool(count):
 def patch_and_update(url, target, subscription_id: str = ""):
     client = get_client()
     mode = _detect_runtime_mode(client)
+    if not client:
+        return False, "Docker未就绪，请先启动 Docker Desktop 后再订阅更新"
     try:
         normalized_url = _normalize_single_subscription_url(url)
         parsed = urllib.parse.urlparse(normalized_url)
@@ -864,6 +866,8 @@ def patch_and_update(url, target, subscription_id: str = ""):
             return ok, ("订阅已更新并已下发到 Linux 单核心 Mihomo。 " + msg) if ok else msg
 
         conts = client.containers.list(all=True, filters={"name": "clash_"})
+        if not conts:
+            return False, "未发现任何 clash_* 实例，请先点击“同步实例”创建容器"
         indices = range(1, len(conts) + 1) if target == "all" else [int(target)]
         for i in indices:
             name = f"clash_{i}"
