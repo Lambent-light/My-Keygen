@@ -1,4 +1,5 @@
 import imaplib
+import hashlib
 import json
 import random
 import re
@@ -1289,6 +1290,22 @@ def get_email_and_token(
             print(f"[{cfg.ts()}] [ERROR] EmailToolHub 流程异常: {e}")
         return None, None
 
+    if mode == "m2u":
+        try:
+            from utils.email_providers.m2u_service import M2uService
+            m2u_service = M2uService(proxies=mail_proxies)
+            email, token = m2u_service.create_email()
+
+            if email and token:
+                set_last_email(email)
+                print(f"[{cfg.ts()}] [INFO] M2U/MailToYou 成功创建临时邮箱: ({mask_email(email)})")
+                return email, token
+            else:
+                print(f"[{cfg.ts()}] [ERROR] M2U/MailToYou 获取邮箱失败")
+        except Exception as e:
+            print(f"[{cfg.ts()}] [ERROR] M2U/MailToYou 流程异常: {e}")
+        return None, None
+
     if mode == "dropmail":
 
         try:
@@ -1832,6 +1849,59 @@ def _extract_otp_code(content: str) -> str:
             return m.group(1)
     fallback = re.search(r"(?<![\d#])(\d{6})(?!\d)", content)
     return fallback.group(1) if fallback else ""
+
+
+def _mail_fingerprint(*parts: str) -> str:
+    text = "\n".join(str(part or "") for part in parts)
+    return hashlib.sha1(text.encode("utf-8", errors="ignore")).hexdigest()
+
+
+def _flatten_mail_text(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, dict):
+        return "\n".join(_flatten_mail_text(v) for v in value.values())
+    if isinstance(value, (list, tuple, set)):
+        return "\n".join(_flatten_mail_text(v) for v in value)
+    return str(value)
+
+
+def _first_nested_value(value: Any, keys: tuple[str, ...]) -> str:
+    if isinstance(value, dict):
+        for key in keys:
+            found = value.get(key)
+            if found not in (None, ""):
+                return str(found).strip()
+        for nested in value.values():
+            found = _first_nested_value(nested, keys)
+            if found:
+                return found
+    if isinstance(value, (list, tuple)):
+        for nested in value:
+            found = _first_nested_value(nested, keys)
+            if found:
+                return found
+    return ""
+
+
+def _safe_mail_preview(text: str, limit: int = 240) -> str:
+    preview = re.sub(r"\s+", " ", str(text or "")).strip()
+    preview = re.sub(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}", "[email]", preview)
+    preview = re.sub(r"(?<!\d)\d{6}(?!\d)", "[code]", preview)
+    return preview[:limit]
+
+
+def _message_id_from_mail_item(item: dict) -> str:
+    for key in ("id", "uuid", "mail_id", "message_id", "email_id", "key"):
+        value = item.get(key)
+        if value:
+            return str(value).strip()
+    for key in ("url", "href", "link"):
+        value = str(item.get(key) or "")
+        match = re.search(r"(?:/en)?/inbox/([^/?#\"']+)", value)
+        if match:
+            return match.group(1).strip()
+    return ""
 
 
 def _create_imap_conn(proxy_str=None):
@@ -2582,6 +2652,53 @@ def get_oai_code(
                 except Exception:
                     pass
 
+            elif mode == "m2u":
+                if not jwt:
+                    print(f"\n[{cfg.ts()}] [ERROR] M2U/MailToYou 缺少 token/view_token，无法提取验证码！")
+                    return ""
+                try:
+                    from utils.email_providers.m2u_service import M2uService
+                    m2u_service = M2uService(proxies=mail_proxies)
+                    msgs = m2u_service.get_messages(jwt)
+                    if attempt in (0, 3, 9):
+                        print(f"[{cfg.ts()}] [INFO] M2U inbox check ({mask_email(email)}): {len(msgs)} message(s)")
+                    for msg in msgs:
+                        msg_id = _message_id_from_mail_item(msg)
+                        if not msg_id:
+                            continue
+                        sender = str(msg.get("from_addr") or msg.get("from") or msg.get("sender") or "").lower()
+                        subject = str(msg.get("subject") or "")
+                        detail = m2u_service.get_message_detail(jwt, msg_id)
+                        if isinstance(detail, dict):
+                            detail_sender = str(detail.get("from_addr") or detail.get("from") or detail.get("sender") or "").lower()
+                            detail_subject = str(detail.get("subject") or "")
+                            body = str(
+                                detail.get("text_body") or
+                                detail.get("html_body") or
+                                detail.get("text") or
+                                detail.get("html") or
+                                detail.get("body") or
+                                ""
+                            )
+                            sender = sender or detail_sender
+                            subject = subject or detail_subject
+                        else:
+                            body = str(detail or "")
+                        full_text = f"{sender}\n{subject}\n{body}"
+                        lowered = full_text.lower()
+                        if "openai" not in lowered and "chatgpt" not in lowered:
+                            continue
+                        msg_fp = _mail_fingerprint("m2u", sender, subject, body)
+                        if msg_fp in processed_mail_ids:
+                            continue
+                        code = _extract_otp_code(full_text)
+                        if code:
+                            processed_mail_ids.add(msg_fp)
+                            print(f"\n[{cfg.ts()}] [SUCCESS] M2U/MailToYou ({mask_email(email)}) 邮箱提取成功: {code}")
+                            return code
+                except Exception:
+                    pass
+
             elif mode == "dropmail":
 
                 if not jwt:
@@ -2819,20 +2936,56 @@ def get_oai_code(
                     from utils.email_providers.moakt_service import MoaktService
                     mk_service = MoaktService(proxies=mail_proxies)
                     msgs = mk_service.get_messages(jwt)
+                    if attempt in (0, 3, 9):
+                        print(f"[{cfg.ts()}] [INFO] Moakt inbox check ({mask_email(email)}): {len(msgs)} message(s)")
                     for msg in msgs:
-                        msg_id = str(msg.get("id", ""))
-                        if not msg_id or msg_id in processed_mail_ids:
+                        msg_id = _message_id_from_mail_item(msg)
+                        if not msg_id:
                             continue
-                        sender = str(msg.get("from", "")).lower()
+                        sender = str(
+                            msg.get("from") or
+                            msg.get("from_address") or
+                            msg.get("source") or
+                            ""
+                        ).lower()
                         subject = str(msg.get("subject", ""))
-                        if "openai" not in sender and "openai" not in subject.lower():
-                            continue
+                        if attempt in (0, 3):
+                            preview_sender = _safe_mail_preview(sender, 80) if sender else "-"
+                            preview_subject = _safe_mail_preview(subject, 120) if subject else "-"
+                            print(f"[{cfg.ts()}] [INFO] Moakt message preview ({mask_email(email)}): id={msg_id[:32]} from={preview_sender} subject={preview_subject}")
                         detail = mk_service.get_message_detail(jwt, msg_id)
-                        body = str(detail.get("data", {}).get("body", detail.get("body", ""))) if isinstance(detail, dict) else str(detail)
+                        if isinstance(detail, dict):
+                            detail_data = detail.get("data", {}) if isinstance(detail.get("data"), dict) else {}
+                            detail_sender = _first_nested_value(
+                                detail,
+                                ("from", "sender", "from_address", "fromAddress", "source", "email_from"),
+                            )
+                            detail_subject = _first_nested_value(detail, ("subject", "title", "headerSubject"))
+                            primary_body = str(
+                                detail_data.get("body") or
+                                detail_data.get("text") or
+                                detail_data.get("html") or
+                                detail.get("body") or
+                                detail.get("text") or
+                                detail.get("html") or
+                                detail.get("content") or
+                                ""
+                            )
+                            body = f"{primary_body}\n{_flatten_mail_text(detail)}".strip()
+                            sender = (sender or detail_sender).lower()
+                            subject = subject or detail_subject
+                        else:
+                            body = str(detail)
                         full_text = f"{sender}\n{subject}\n{body}"
+                        if attempt in (0, 3):
+                            detail_preview = _safe_mail_preview(full_text)
+                            print(f"[{cfg.ts()}] [INFO] Moakt detail preview ({mask_email(email)}): {detail_preview or '-'}")
+                        msg_fp = _mail_fingerprint("moakt", sender, subject, body)
+                        if msg_fp in processed_mail_ids:
+                            continue
                         code = _extract_otp_code(full_text)
                         if code:
-                            processed_mail_ids.add(msg_id)
+                            processed_mail_ids.add(msg_fp)
                             print(f"\n[{cfg.ts()}] [SUCCESS] Moakt ({mask_email(email)})邮箱提取成功: {code}")
                             return code
                 except Exception as e:

@@ -200,6 +200,7 @@ MAIL_DOMAIN_FAIL_THRESHOLD: int = 3
 MAIL_DOMAIN_FAIL_COOLDOWN_SEC: int = 600
 GPTMAIL_BASE: str = ""
 ADMIN_AUTH: str = ""
+MOAKT_PREFERRED_DOMAIN: str = ""
 IMAP_SERVER: str = ""
 IMAP_PORT: int = 993
 IMAP_USER: str = ""
@@ -436,7 +437,7 @@ def get_next_sub2api_proxy_url(raw_value=None) -> str:
 def reload_all_configs(new_config_dict=None):
     global _c
     global WEB_PASSWORD
-    global EMAIL_API_MODE, MAIL_DOMAINS, GPTMAIL_BASE, ADMIN_AUTH
+    global EMAIL_API_MODE, MAIL_DOMAINS, GPTMAIL_BASE, ADMIN_AUTH, MOAKT_PREFERRED_DOMAIN
     global DISABLED_MAIL_DOMAINS
     global ENABLE_MAIL_DOMAIN_RUNTIME_CONTROL
     global ENABLE_MAIL_DOMAIN_GROUPING, MAIL_DOMAIN_GROUP_COUNT, MAIL_DOMAIN_GROUP_MODE
@@ -964,6 +965,9 @@ def reload_all_configs(new_config_dict=None):
     _awamail = _c.get("awamail", {})
     AWAMAIL_CF_CLEARANCE = str(_awamail.get("cf_clearance") or "").strip()
     AWAMAIL_COOKIE = str(_awamail.get("cookie") or "").strip()
+
+    _moakt = _c.get("moakt", {})
+    MOAKT_PREFERRED_DOMAIN = str(_moakt.get("preferred_domain") or "").strip()
 
     _emailgenerator_org = _c.get("emailgenerator_org", {})
     EMAILGENERATOR_ORG_CF_CLEARANCE = str(_emailgenerator_org.get("cf_clearance") or "").strip()

@@ -19,6 +19,25 @@ from .oauth import generate_oauth_url, submit_callback_url
 from .user_utils import _generate_password
 
 
+def _brief_resp(resp, limit: int = 240) -> str:
+    try:
+        text = str(getattr(resp, "text", "") or "")
+    except Exception:
+        text = ""
+    text = " ".join(text.split())
+    return text[:limit]
+
+
+def _otp_send_ok(resp, email: str, stage: str) -> bool:
+    status = getattr(resp, "status_code", None)
+    body = _brief_resp(resp)
+    if status == 200:
+        print(f"[{cfg.ts()}] [INFO] OpenAI OTP send ok ({stage}) for {mask_email(email)}")
+        return True
+    print(f"[{cfg.ts()}] [ERROR] OpenAI OTP send failed ({stage}) for {mask_email(email)}: HTTP {status} {body}")
+    return False
+
+
 def run(
     proxy: Optional[str],
     run_ctx: dict = None,
@@ -341,14 +360,17 @@ def run(
                             })
                             if sentinel_send:
                                 send_headers["openai-sentinel-token"] = sentinel_send
-                            _post_with_retry(
+                            send_resp = _post_with_retry(
                                 s_reg,
                                 send_otp_url,
                                 headers=send_headers,
                                 json_body={}, proxies=proxies, timeout=30,
                             )
+                            if not _otp_send_ok(send_resp, email, "initial-register"):
+                                return None, None
                         except Exception as e:
                             print(f"[{cfg.ts()}] [WARNING] （{mask_email(email)}）OTP 初始发送请求异常: {e}")
+                            return None, None
 
                         code = ""
                         code_resp = None
@@ -371,15 +393,18 @@ def run(
                                     })
                                     if sentinel_resend:
                                         resend_headers["openai-sentinel-token"] = sentinel_resend
-                                    _post_with_retry(
+                                    resend_resp = _post_with_retry(
                                         s_reg,
                                         "https://auth.openai.com/api/accounts/email-otp/resend",
                                         headers=resend_headers,
                                         json_body={}, proxies=proxies, timeout=15,
                                     )
+                                    if not _otp_send_ok(resend_resp, email, f"register-resend-{resend_attempt}"):
+                                        break
                                     time.sleep(2)
                                 except Exception as e:
                                     print(f"[{cfg.ts()}] [WARNING] （{mask_email(email)}）重新发送请求异常: {e}")
+                                    break
                             is_openai_cpa = getattr(cfg, 'EMAIL_API_MODE', '')
                             force_original_pwd = getattr(cfg, 'USE_ORIGINAL_PASSWORD_FLOW', False)
                             if is_openai_cpa == "openai_cpa" and force_original_pwd:
@@ -872,15 +897,18 @@ def run(
                                         })
                                         if sentinel_log_resend:
                                             log_resend_headers["openai-sentinel-token"] = sentinel_log_resend
-                                        _post_with_retry(
+                                        log_send_resp = _post_with_retry(
                                             s_log,
                                             "https://auth.openai.com/api/accounts/email-otp/send",
                                             headers=log_resend_headers,
                                             json_body={}, proxies=proxies, timeout=15,
                                         )
+                                        if not _otp_send_ok(log_send_resp, email, f"login-security-send-{resend_attempt}"):
+                                            break
                                         time.sleep(2)
                                     except Exception as e:
                                         print(f"[{cfg.ts()}] [WARNING] （{mask_email(email)}）重新发送请求异常: {e}")
+                                        break
                                 code2 = get_oai_code(email, jwt=email_jwt, proxies=proxies,
                                                      processed_mail_ids=processed_mails)
 

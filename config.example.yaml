@@ -163,6 +163,9 @@ emailgenerator_org:
 # [EmailToolHub Inbox Checker] - zero config, shared public test mailbox pool
 # email_api_mode: "emailtoolhub"
 
+# [M2U / MailToYou 临时邮箱] - 零配置，公开 REST API，随机邮箱无需 Turnstile
+# email_api_mode: "m2u"
+
 # [DropMail.me 临时邮箱] - 需要免费 af_ token
 # email_api_mode: "dropmail"
 dropmail:
@@ -196,8 +199,10 @@ mailsac:
 # [Mail.td 临时邮箱] - 极冷门域名，自动 PoW + JWT，无需任何配置
 # email_api_mode: "mailtd"
 
-# [Moakt.com 临时邮箱] - REST JSON API，tmpbox/disbox域名，零配置
+# [Moakt.com 临时邮箱] - REST JSON API，多域名随机分配，零配置
 # email_api_mode: "moakt"
+moakt:
+  preferred_domain: ""
 
 # [Mail.tm 临时邮箱] - 与 Mail.gw 同后端不同域名，JWT鉴权，零配置
 # email_api_mode: "mailtm"

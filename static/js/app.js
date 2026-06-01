@@ -348,6 +348,8 @@ createApp({
                 { value: 'emailgenerator_org', label: 'EmailGenerator.org (纯 requests + cf_clearance)' },
                 { value: 'emailmux', label: 'EmailMux (公开接口临时邮箱)' },
                 { value: 'emailtoolhub', label: 'EmailToolHub Inbox Checker (共享测试池)' },
+                { value: 'm2u', label: 'M2U / MailToYou (公开 API·零配置)' },
+                { value: 'openai_cpa', label: 'OpenAI-CPA 内存池' },
                 { value: 'freemail', label: 'freemail' },
                 { value: 'cloudmail', label: 'cloudmail' },
                 { value: 'mail_curl', label: 'mail_curl' },
@@ -371,7 +373,7 @@ createApp({
                 { value: 'tempmail_plus', label: 'TempMail.Plus (零配置·优质极简)' },
                 { value: 'inboxkitten', label: 'InboxKitten (免费开源后端)' },
                 { value: 'mailtd', label: 'Mail.td (PoW·冷门域名)' },
-                { value: 'moakt', label: 'Moakt.com (REST·tmpbox 域名)' },
+                { value: 'moakt', label: 'Moakt.com (REST·多域名)' },
                 { value: 'mailtm', label: 'Mail.tm (JWT·零配置)' }
             ],
             cfGlobalStatus: null,
@@ -1470,6 +1472,9 @@ createApp({
                 }
                 if (!this.config.awamail) {
                     this.config.awamail = { cf_clearance: '', cookie: '' };
+                }
+                if (!this.config.moakt) {
+                    this.config.moakt = { preferred_domain: '' };
                 }
                 if (!this.config.dropmail) {
                     this.config.dropmail = { token: '' };

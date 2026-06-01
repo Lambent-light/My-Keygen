@@ -14,6 +14,26 @@ from utils.auth_core import generate_payload
 from .http_utils import _post_with_retry, _oai_headers
 from .user_utils import generate_random_user_info
 
+
+def _brief_resp(resp, limit: int = 240) -> str:
+    try:
+        text = str(getattr(resp, "text", "") or "")
+    except Exception:
+        text = ""
+    text = " ".join(text.split())
+    return text[:limit]
+
+
+def _otp_send_ok(resp, email: str, stage: str) -> bool:
+    status = getattr(resp, "status_code", None)
+    body = _brief_resp(resp)
+    if status == 200:
+        print(f"[{cfg.ts()}] [INFO] OpenAI OTP send ok ({stage}) for {mask_email(email)}")
+        return True
+    print(f"[{cfg.ts()}] [ERROR] OpenAI OTP send failed ({stage}) for {mask_email(email)}: HTTP {status} {body}")
+    return False
+
+
 def _b64url_no_pad(raw: bytes) -> str:
     return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
 
@@ -149,15 +169,18 @@ def _otp_verify_loop(
             })
             if sentinel_send:
                 send_headers["openai-sentinel-token"] = sentinel_send
-            _post_with_retry(
+            first_send_resp = _post_with_retry(
                 session,
                 first_send_url,
                 headers=send_headers,
                 json_body=first_send_json_body if first_send_json_body is not None else {},
                 proxies=proxies, timeout=30,
             )
+            if not _otp_send_ok(first_send_resp, email, "initial"):
+                return "", None
         except Exception as e:
             print(f"[{cfg.ts()}] [WARNING] （{mask_email(email)}）OTP 初始发送请求异常: {e}")
+            return "", None
 
     code = ""
     for resend_attempt in range(max(1, cfg.MAX_OTP_RETRIES)):
@@ -173,15 +196,18 @@ def _otp_verify_loop(
                 })
                 if sentinel_resend:
                     resend_headers["openai-sentinel-token"] = sentinel_resend
-                _post_with_retry(
+                resend_resp = _post_with_retry(
                     session,
                     resend_url,
                     headers=resend_headers,
                     json_body={}, proxies=proxies, timeout=15,
                 )
+                if not _otp_send_ok(resend_resp, email, f"resend-{resend_attempt}"):
+                    return "", None
                 time.sleep(2)
             except Exception as e:
                 print(f"[{cfg.ts()}] [WARNING] （{mask_email(email)}）重新发送请求异常: {e}")
+                return "", None
 
         code = get_oai_code(email, jwt=email_jwt, proxies=proxies,
                             processed_mail_ids=processed_mails)

@@ -1190,6 +1190,7 @@
                                     <option value="emailgenerator_org">EmailGenerator.org (纯 requests + cf_clearance)</option>
                                     <option value="emailmux">EmailMux (公开接口临时邮箱)</option>
                                     <option value="emailtoolhub">EmailToolHub Inbox Checker (共享测试池)</option>
+                                    <option value="m2u">M2U / MailToYou (公开 API·零配置)</option>
                                     <option value="openai_cpa">OpenAI-CPA 内存池</option>
                                     <option value="freemail">freemail</option>
                                     <option value="cloudmail">cloudmail</option>
@@ -2506,6 +2507,19 @@
                                     </div>
                                 </div>
 
+                                <div v-if="config.email_api_mode === 'm2u'" class="space-y-4 mt-2 animate-fade-in">
+                                    <div class="flex items-center gap-2 mb-4">
+                                        <span class="text-xs font-black text-cyan-800 bg-cyan-100 px-3 py-1.5 rounded-md border border-cyan-200 shadow-sm uppercase tracking-wider">当前模式</span>
+                                        <span class="text-sm font-black text-slate-700">M2U / MailToYou (公开 REST API)</span>
+                                    </div>
+                                    <div class="p-4 rounded-xl bg-gradient-to-br from-cyan-50 to-sky-50 border border-cyan-100 text-cyan-900 text-sm">
+                                        <p class="flex items-center gap-1.5 text-sm"><span>OK</span> 已切换至 M2U / MailToYou 临时邮箱</p>
+                                        <p class="mt-1 text-cyan-800 opacity-90">无需 Cookie、无需 API Key、无需浏览器；随机邮箱直接走 <code>https://api.m2u.io</code> 公开接口。</p>
+                                        <p class="mt-2 text-cyan-800 opacity-90">当前公开域名包括 <code>cpu.edu.kg</code>、<code>do4.tech</code>、<code>kkb.qzz.io</code>、<code>shaole.me</code>、<code>tmail.bio</code>，由服务端随机分配。</p>
+                                        <p class="mt-3 text-amber-700 font-black bg-amber-50/70 p-2 rounded-lg border border-amber-100">注意：官方限制随机邮箱约 60 次/分钟、200 次/天；收件查询约 100 次/分钟。</p>
+                                    </div>
+                                </div>
+
                                 <div v-if="config.email_api_mode === 'dropmail'" class="space-y-4 mt-2 animate-fade-in">
                                     <div class="flex items-center gap-2 mb-4">
                                         <span class="text-xs font-black text-violet-800 bg-violet-100 px-3 py-1.5 rounded-md border border-violet-200 shadow-sm uppercase tracking-wider">当前模式</span>
@@ -2645,8 +2659,31 @@
                                     </div>
                                     <div class="text-xs text-emerald-800 font-bold bg-emerald-50 border border-emerald-200 p-4 rounded-xl leading-relaxed shadow-sm">
                                         <p class="flex items-center gap-1.5 text-sm"><span>📦</span> 已切换至 Moakt</p>
-                                        <p class="mt-2 text-emerald-700 opacity-90">标准 REST JSON API，域名极其冷门（<code>tmpbox.net</code>, <code>disbox.net</code>）。邮箱有效期 1 小时。</p>
-                                        <p class="mt-3 text-blue-600 font-black bg-blue-50/50 p-2 rounded-lg border border-blue-100">🏆 经验证的高质量 API，零配置，域名几乎搜不到黑名单！</p>
+                                        <p class="mt-2 text-emerald-700 opacity-90">标准 REST JSON API，支持官网随机地址，也可以手动固定域名。</p>
+                                        <p class="mt-3 text-blue-600 font-black bg-blue-50/50 p-2 rounded-lg border border-blue-100">建议优先使用随机分配，避免一批账号全部压到同一个后缀。</p>
+                                    </div>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label class="block text-slate-700 text-sm font-bold mb-2">首选邮箱域名</label>
+                                            <select v-model="config.moakt.preferred_domain" class="w-full appearance-none bg-white border border-slate-200 text-slate-700 rounded-lg py-3 px-3 focus:outline-none focus:ring-2 focus:ring-rose-500/20 focus:border-rose-500 transition-colors shadow-sm text-sm relative bg-[url('data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%2394a3b8%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E')] bg-[length:10px_10px] bg-[right_10px_center] bg-no-repeat">
+                                                <option value="">随机分配</option>
+                                                <option value="drmail.in">drmail.in</option>
+                                                <option value="teml.net">teml.net</option>
+                                                <option value="tmpeml.com">tmpeml.com</option>
+                                                <option value="tmpbox.net">tmpbox.net</option>
+                                                <option value="disbox.net">disbox.net</option>
+                                                <option value="moakt.cc">moakt.cc</option>
+                                                <option value="tmpmail.org">tmpmail.org</option>
+                                                <option value="tmpmail.net">tmpmail.net</option>
+                                                <option value="tmails.net">tmails.net</option>
+                                                <option value="disbox.org">disbox.org</option>
+                                                <option value="moakt.co">moakt.co</option>
+                                                <option value="moakt.ws">moakt.ws</option>
+                                                <option value="tmail.ws">tmail.ws</option>
+                                                <option value="bareed.ws">bareed.ws</option>
+                                            </select>
+                                            <p class="mt-2 text-xs text-slate-500">收不到码时先保持随机分配，并把注册线程控制在 5 到 10 以内。</p>
+                                        </div>
                                     </div>
                                 </div>
 
