@@ -24,6 +24,7 @@ from utils import core_engine, db_manager
 from utils.email_providers import mail_service
 from utils.config import reload_all_configs
 from utils.integrations.tg_notifier import send_tg_msg_async
+import utils.integrations.clash_manager as clash_manager
 from utils.memory_predictor import build_memory_report
 from utils.system_maintenance import get_cleanup_status
 import utils.config as cfg
