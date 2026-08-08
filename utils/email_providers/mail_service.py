@@ -1830,11 +1830,87 @@ def _extract_mail_fields(mail: dict) -> dict:
     return {"sender": sender, "subject": subject, "body": body_text, "raw": raw}
 
 
+
+def _is_grok_registration_mode() -> bool:
+    """Grok/xAI 注册时，邮件发件人与验证码形态都不同于 OpenAI。"""
+    return str(getattr(cfg, "REG_PROVIDER", "openai") or "openai").strip().lower() == "grok"
+
+
+def _mail_matches_otp_sender(*parts: Any, platform: str = "") -> bool:
+    blob = " ".join(str(p or "") for p in parts).lower()
+    if not blob.strip():
+        return False
+    plat = str(platform or _get_otp_platform_ctx() or "").strip().lower()
+    if plat in {"domain_register", "dpdns", "domain"}:
+        keys = (
+            "domain_register",
+            "dpdns",
+            "domain.digitalplat",
+            "dash.domain",
+            "noreply",
+            "no-reply",
+            "verification",
+            "verify",
+            "registry",
+        )
+        if any(k in blob for k in keys):
+            return True
+        if re.search(r"(?<!\d)\d{6}(?!\d)", blob):
+            return True
+        return False
+    if _is_grok_registration_mode() and plat not in {"openai", "chatgpt"}:
+        keys = (
+            "x.ai",
+            "xai",
+            "grok",
+            "accounts.x.ai",
+            "mail.x.ai",
+            "noreply@x",
+        )
+        return any(k in blob for k in keys)
+    return ("openai" in blob) or ("chatgpt" in blob)
+
+
 OTP_CODE_PATTERN = r"(?<!\d)(\d{6})(?!\d)"
 
+# get_oai_code 临时平台上下文（避免改遍所有调用点）
+import threading as _otp_threading
+_OTP_PLATFORM_LOCAL = _otp_threading.local()
 
-def _extract_otp_code(content: str) -> str:
+
+def _get_otp_platform_ctx() -> str:
+    return str(getattr(_OTP_PLATFORM_LOCAL, "platform", "") or "")
+
+
+def _set_otp_platform_ctx(value: str) -> None:
+    _OTP_PLATFORM_LOCAL.platform = str(value or "")
+
+
+def _extract_otp_code(content: str, platform: str = "") -> str:
     if not content:
+        return ""
+    plat = str(platform or _get_otp_platform_ctx() or "").strip().lower()
+    if plat in {"domain_register", "dpdns", "domain", "generic"}:
+        patterns = [
+            r"(?i)(?:verification|verify|security|login|sign[- ]?up)?\s*code[:\s-]+(\d{6})",
+            r"(?i)(?:your code is|code is|enter captcha|enter this code)[:\s]+(\d{6})",
+            r"(?i)digitalplat[^\d]{0,40}(\d{6})",
+            r"(?i)subject:.*?(\d{6})",
+            r"(?<!\d)(\d{6})(?!\d)",
+        ]
+        for p in patterns:
+            m = re.search(p, content)
+            if m:
+                return m.group(1)
+        return ""
+    if _is_grok_registration_mode():
+        try:
+            from utils.grok_auth.otp import extract_xai_code
+            code = extract_xai_code(content)
+            if code:
+                return code
+        except Exception:
+            pass
         return ""
     patterns = [
         r"(?i)Your (?:ChatGPT|OpenAI) code is\s*(\d{6})",
@@ -1842,6 +1918,8 @@ def _extract_otp_code(content: str) -> str:
         r"(?i)verification code to continue:\s*(\d{6})",
         r"(?i)Subject:.*?(\d{6})",
         r"(?i)enter this code:\s*(\d{6})",
+        r"(?i)(?:verification|security|login|sign[- ]?up) code[:\s]+(\d{6})",
+        r"(?i)code is[:\s]+(\d{6})",
     ]
     for p in patterns:
         m = re.search(p, content)
@@ -1918,8 +1996,9 @@ def get_oai_code(
         pattern: str = OTP_CODE_PATTERN,
         max_attempts: int = 20,
         ignore_code=None,
+        platform: str = "",
 ) -> str:
-    """轮询各邮箱服务商收取 OpenAI 验证码，返回 6 位字符串或空串。"""
+    """轮询各邮箱服务商收取验证码。"""
     max_attempts = getattr(cfg, 'OTP_POLL_MAX_ATTEMPTS', 20)
     mailbox_id = jwt
     mail_proxies = proxies if cfg.USE_PROXY_FOR_EMAIL else None
@@ -1931,8 +2010,10 @@ def get_oai_code(
             proxy_str = str(mail_proxies)
     base_url = cfg.GPTMAIL_BASE.rstrip("/")
     mode = cfg.EMAIL_API_MODE
+    otp_platform = str(platform or "").strip().lower()
+    _set_otp_platform_ctx(otp_platform)
 
-    print(f"\n[{cfg.ts()}] [INFO] 等待接收验证码 ({mask_email(email)})...")
+    print(f"\n[{cfg.ts()}] [INFO] 等待接收验证码 ({mask_email(email)})" + (f" platform={otp_platform}" if otp_platform else "") + "...")
 
     if processed_mail_ids is None:
         processed_mail_ids = set()
@@ -1982,7 +2063,7 @@ def get_oai_code(
                     for mail_item in (res.json() or []):
                         m_id = mail_item.get("mail_id")
                         s_name = mail_item.get("sender_name", "").lower()
-                        if m_id and m_id not in processed_mail_ids and "openai" in s_name:
+                        if m_id and m_id not in processed_mail_ids and _mail_matches_otp_sender(s_name):
                             detail_res = requests.get(
                                 f"{cfg.MC_API_BASE}/api/mail"
                                 f"?key={cfg.MC_KEY}&id={m_id}",
@@ -2010,7 +2091,7 @@ def get_oai_code(
                     subject = str(m.get("subject", ""))
                     sender = str(m.get("from", "")).lower()
 
-                    if "openai" in sender or "openai" in subject.lower() or "chatgpt" in subject.lower():
+                    if _mail_matches_otp_sender(sender, subject):
                         raw_body = fs.get_message_body(email, m_id)
                         clean_body = _clean_html_to_text(raw_body)
                         combined_text = subject + " \n " + clean_body
@@ -2053,7 +2134,7 @@ def get_oai_code(
                         detail = tm_service.get_email_detail(m_id)
                         subject = str(detail.get("subject", ""))
                         a = detail.get("id", "")
-                        if "openai" in sender or "openai" in subject.lower() or "chatgpt" in subject.lower():
+                        if _mail_matches_otp_sender(sender, subject):
                             raw_body = tm_service.get_message_body(detail.get("id", ""))
                             clean_body = _clean_html_to_text(raw_body)
                             combined_text = subject + " \n " + clean_body
@@ -2097,7 +2178,7 @@ def get_oai_code(
                         subject = str(m.get("s", ""))
                         sender = str(m.get("f", "")).lower()
 
-                        if "openai" in sender or "openai" in subject.lower() or "chatgpt" in subject.lower():
+                        if _mail_matches_otp_sender(sender, subject):
                             raw_body = ibs.get_message_body(m_id, user_id=jwt)
                             clean_body = _clean_html_to_text(raw_body)
 
@@ -2149,7 +2230,7 @@ def get_oai_code(
                         sender_email = str(mail_item.get("sender_email", "")).lower()
                         subject = str(mail_item.get("subject", ""))
 
-                        if "openai" not in sender and "openai" not in sender_email and "openai" not in subject.lower():
+                        if not _mail_matches_otp_sender(sender, sender_email, subject):
                             continue
 
                         email_id = mail_item.get("email_id")
@@ -2243,15 +2324,14 @@ def get_oai_code(
                             raw_text = code_pool.pop(target_email, "")
                             clean_text = _clean_html_to_text(raw_text)
                             code = ""
-                            m = re.search(r"(?<![\d#])(\d{6})(?!\d)", clean_text)
-                            if m:
-                                code = m.group(1)
-
-                            if not code:
-                                try:
-                                    code = _extract_otp_code(clean_text)
-                                except Exception:
-                                    pass
+                            try:
+                                code = _extract_otp_code(clean_text)
+                            except Exception:
+                                code = ""
+                            if not code and not _is_grok_registration_mode():
+                                m = re.search(r"(?<![\d#])(\d{6})(?!\d)", clean_text)
+                                if m:
+                                    code = m.group(1)
                             if code:
                                 print(f"[{cfg.ts()}] [SUCCESS] cloudmail (本项目极速) ({mask_email(target_email)}) 提取成功: {code}")
                                 return code
@@ -2275,7 +2355,7 @@ def get_oai_code(
                                 sender = str(m.get("sendEmail", "")).lower()
                                 subject = str(m.get("subject", ""))
 
-                                if "openai" not in sender and "openai" not in subject.lower() and "chatgpt" not in subject.lower():
+                                if not _mail_matches_otp_sender(sender, subject):
                                     continue
 
                                 raw_body = str(m.get("content", "") or m.get("text", ""))
@@ -2412,7 +2492,7 @@ def get_oai_code(
                     #         for mail_item in (res.json() or []):
                     #             m_id = mail_item.get("mail_id")
                     #             s_name = mail_item.get("sender_name", "").lower()
-                    #             if m_id and m_id not in processed_mail_ids and "openai" in s_name:
+                    #             if m_id and m_id not in processed_mail_ids and _mail_matches_otp_sender(s_name):
                     #                 detail_res = requests.get(
                     #                     f"{cfg.MC_API_BASE}/api/mail?key={cfg.MC_KEY}&id={m_id}",
                     #                     proxies=mail_proxies, verify=_ssl_verify(), timeout=10)
@@ -2466,7 +2546,7 @@ def get_oai_code(
                     msgs = ds.get_messages(jwt)
                     for m in msgs:
                         content = f"{m.get('subject', '')}\n{m.get('text', '')}\n{_clean_html_to_text(m.get('html', ''))}"
-                        if "openai" in content.lower() or "chatgpt" in content.lower():
+                        if _mail_matches_otp_sender(content):
                             code = _extract_otp_code(content)
                             if code:
                                 print(
@@ -3094,7 +3174,7 @@ def get_oai_code(
 
                         safe_content = re.sub(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}", " ", content)
 
-                        if "openai" not in sender and "openai" not in content.lower():
+                        if not _mail_matches_otp_sender(sender, content):
                             continue
 
                         code = _extract_otp_code(safe_content)
@@ -3158,9 +3238,14 @@ def get_oai_code(
                         status, _ = mail_conn.select(folder, readonly=True)
                         if status != "OK":
                             continue
-                        status, messages = mail_conn.search(
-                            None, f'(UNSEEN FROM "openai.com" TO "{email}")'
-                        )
+                        if _is_grok_registration_mode():
+                            status, messages = mail_conn.search(
+                                None, f'(UNSEEN TO "{email}")'
+                            )
+                        else:
+                            status, messages = mail_conn.search(
+                                None, f'(UNSEEN FROM "openai.com" TO "{email}")'
+                            )
                         if status != "OK" or not messages[0]:
                             continue
                         for mail_id in reversed(messages[0].split()):
@@ -3319,9 +3404,14 @@ def get_oai_code(
                                 continue
                             subject_text = str(mail.get("subject") or mail.get("title") or "")
                             code = ""
-                            m = re.search(r"(?<![\d#])(\d{6})(?!\d)", subject_text)
-                            if m:
-                                code = m.group(1)
+                            try:
+                                code = _extract_otp_code(subject_text)
+                            except Exception:
+                                code = ""
+                            if not code and not _is_grok_registration_mode():
+                                m = re.search(r"(?<![\d#])(\d{6})(?!\d)", subject_text)
+                                if m:
+                                    code = m.group(1)
                             if not code:
                                 code = str(mail.get("code") or mail.get("verification_code") or "")
                             if not code:
@@ -3392,14 +3482,16 @@ def get_oai_code(
                         parsed = _extract_mail_fields(mail)
 
                         content = f"{parsed['subject']}\n{parsed['body']}".strip()
-                        if ("openai" not in parsed["sender"].lower() and
-                                "openai" not in content.lower()):
+                        if not _mail_matches_otp_sender(parsed.get("sender", ""), content):
                             continue
-                        m = re.search(pattern, content)
-                        if m:
+                        code = _extract_otp_code(content)
+                        if not code and not _is_grok_registration_mode():
+                            m = re.search(pattern, content)
+                            code = m.group(1) if m else ""
+                        if code:
                             processed_mail_ids.add(mail_id)
-                            print(f"[{cfg.ts()}] [SUCCESS] ({mask_email(email)})邮箱提取成功: {m.group(1)}")
-                            return m.group(1)
+                            print(f"[{cfg.ts()}] [SUCCESS] ({mask_email(email)})邮箱提取成功: {code}")
+                            return code
                     pass
                 else:
                     pass

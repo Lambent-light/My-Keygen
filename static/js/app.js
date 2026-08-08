@@ -320,6 +320,25 @@ createApp({
             isLoadingConfig: false,
             configLoadError: '',
             mobileNavOpen: false,
+            plugins: [],
+            domainRegisterEnabled: false,
+            domainRegisterStatusTimer: null,
+            domainRegister: {
+                api_token: '',
+                invite_ref: '',
+                auto_invite_signup: true,
+                domain_prefix: 'sub2api',
+                domain_suffix: 'dpdns.org',
+                domain_start: 27,
+                domain_end: 127,
+                domain_pad: 4,
+                running: false,
+                statusText: '',
+                logs: [],
+                preview: [],
+                progress: {done:0,total:0,ok:0,fail:0}
+            },
+
             tabs: [
                     { id: 'console', name: '运行主页', icon: '<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>' },
                     { id: 'cluster', name: '集群总控', icon: '<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"></path></svg>' },
@@ -333,6 +352,7 @@ createApp({
                     { id: 'proxy', name: '网络代理', icon: '<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg>' },
                     { id: 'relay', name: '中转管仓', icon: '<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h11a5 5 0 00-.1-9.995A5.002 5.002 0 1010.5 6H9.75a4 4 0 00-6.75 9z"></path></svg>' },
                     { id: 'notify', name: '消息通知', icon: '<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h6a3 3 0 013 3v1a3 3 0 01-3 3H9.436c-1.532 0-2.22.24-2.893.542z"></path></svg>' },
+                                        { id: 'domain_register', name: '域名注册', plugin: 'domain_register', icon: '<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path></svg>', plugin: 'domain_register' },
                     { id: 'concurrency', name: '并发与系统', icon: '<svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>' },
 				// { id: 'cf_routes', name: 'CF 路由', icon: '🌍' },
 
@@ -673,6 +693,7 @@ createApp({
         this.$nextTick(() => this.applyLanguageToDom());
     },
     beforeUnmount() {
+        this.stopDomainRegisterStatusPolling && this.stopDomainRegisterStatusPolling();
         if(this.statsTimer) clearInterval(this.statsTimer);
         if (this.languageObserver) this.languageObserver.disconnect();
         if (typeof document !== 'undefined') {
@@ -680,6 +701,10 @@ createApp({
         }
     },
 	computed: {
+        visibleTabs() {
+            return (this.tabs || []).filter(t => !t.plugin || (t.plugin === 'domain_register' && this.domainRegisterEnabled));
+        },
+
         totalPages() {
             return Math.ceil(this.totalAccounts / this.pageSize) || 1;
         },
@@ -969,6 +994,225 @@ createApp({
             if (this.confirmModal.resolve) this.confirmModal.resolve(result);
             this.confirmModal.show = false;
         },
+        
+        async loadPlugins() {
+            try {
+                const res = await this.authFetch('/api/plugins');
+                const data = await res.json();
+                const items = (data && data.items) ? data.items : [];
+                this.plugins = items;
+                this.domainRegisterEnabled = items.some(p => (p.id === 'domain_register' || p.name === 'domain_register') && p.enabled !== false);
+                if (this.domainRegisterEnabled) {
+                    this.applyDomainRegisterFromConfig();
+                }
+            } catch (e) {
+                this.domainRegisterEnabled = false;
+            }
+        },
+        normalizeDomainRegisterInvite() {
+            let ref = String((this.domainRegister && this.domainRegister.invite_ref) || '').trim();
+            const pickRef = (text) => {
+                const m = String(text || '').match(/[?&]ref=([^&?#\s]+)/i);
+                return m ? decodeURIComponent(m[1]).trim() : '';
+            };
+            if (/^https?:\/\//i.test(ref)) {
+                const fromUrl = pickRef(ref);
+                if (fromUrl) ref = fromUrl;
+            }
+            ref = String(ref || '').replace(/\s+/g, '');
+            this.domainRegister.invite_ref = ref;
+            return ref;
+        },
+        applyDomainRegisterFromConfig() {
+            const d = (this.config && this.config.domain_register && typeof this.config.domain_register === 'object')
+                ? this.config.domain_register
+                : {};
+            if (d.api_token != null) this.domainRegister.api_token = String(d.api_token || '');
+            if (d.invite_ref != null) this.domainRegister.invite_ref = String(d.invite_ref || '');
+            // 兼容旧配置里的 signup_url
+            if (!this.domainRegister.invite_ref && d.signup_url) {
+                this.domainRegister.invite_ref = String(d.signup_url || '');
+            }
+            if (d.auto_invite_signup != null) this.domainRegister.auto_invite_signup = !!d.auto_invite_signup;
+            if (d.domain_prefix) this.domainRegister.domain_prefix = d.domain_prefix;
+            if (d.domain_suffix) this.domainRegister.domain_suffix = d.domain_suffix;
+            if (d.domain_start != null) this.domainRegister.domain_start = d.domain_start;
+            if (d.domain_end != null) this.domainRegister.domain_end = d.domain_end;
+            if (d.domain_pad != null) this.domainRegister.domain_pad = d.domain_pad;
+            this.normalizeDomainRegisterInvite && this.normalizeDomainRegisterInvite();
+        },
+        syncDomainRegisterToConfig() {
+            if (!this.config || typeof this.config !== 'object') this.config = {};
+            this.normalizeDomainRegisterInvite && this.normalizeDomainRegisterInvite();
+            const prev = (this.config.domain_register && typeof this.config.domain_register === 'object')
+                ? this.config.domain_register
+                : {};
+            this.config.domain_register = {
+                ...prev,
+                api_token: String(this.domainRegister.api_token || ''),
+                invite_ref: String(this.domainRegister.invite_ref || ''),
+                auto_invite_signup: !!this.domainRegister.auto_invite_signup,
+                domain_prefix: String(this.domainRegister.domain_prefix || 'sub2api'),
+                domain_suffix: String(this.domainRegister.domain_suffix || 'dpdns.org'),
+                domain_start: Number(this.domainRegister.domain_start) || 0,
+                domain_end: Number(this.domainRegister.domain_end) || 0,
+                domain_pad: Number(this.domainRegister.domain_pad) || 0,
+            };
+            // 清理已废弃字段
+            delete this.config.domain_register.cf_account_id;
+            delete this.config.domain_register.signup_url;
+            delete this.config.domain_register.cf_page_url;
+            delete this.config.domain_register.cf_sitekey;
+            delete this.config.domain_register.headless;
+        },
+        async saveDomainRegisterConfig() {
+            try {
+                this.syncDomainRegisterToConfig();
+                const res = await this.authFetch('/api/config', {
+                    method: 'POST',
+                    body: JSON.stringify(this.config),
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    this.showToast('域名扩展配置已保存', 'success');
+                    await this.fetchConfig();
+                    this.applyDomainRegisterFromConfig();
+                } else {
+                    this.showToast('保存失败：' + (data.message || ''), 'error');
+                }
+            } catch (e) {
+                this.showToast('保存失败网络异常', 'error');
+            }
+        },
+        async refreshDomainRegisterStatus() {
+            if (!this.domainRegisterEnabled) return;
+            try {
+                const res = await this.authFetch('/api/domain-register/status');
+                const data = await res.json();
+                if (data && data.data) {
+                    const wasRunning = !!this.domainRegister.running;
+                    this.domainRegister.running = !!data.data.running;
+                    this.domainRegister.statusText = data.data.last_message || '';
+                    this.domainRegister.logs = data.data.logs || [];
+                    this.domainRegister.progress = data.data.progress || this.domainRegister.progress;
+                    if (this.domainRegister.running || this.currentTab === 'domain_register') {
+                        this.ensureDomainRegisterStatusPolling();
+                    } else if (wasRunning && !this.domainRegister.running) {
+                        this.stopDomainRegisterStatusPolling();
+                    }
+                }
+            } catch (e) {}
+        },
+        ensureDomainRegisterStatusPolling() {
+            if (!this.domainRegisterEnabled) return;
+            if (this.domainRegisterStatusTimer) return;
+            this.domainRegisterStatusTimer = setInterval(() => {
+                if (!this.domainRegisterEnabled) {
+                    this.stopDomainRegisterStatusPolling();
+                    return;
+                }
+                if (this.currentTab === 'domain_register' || this.domainRegister.running) {
+                    this.refreshDomainRegisterStatus();
+                } else {
+                    this.stopDomainRegisterStatusPolling();
+                }
+            }, 1000);
+        },
+        stopDomainRegisterStatusPolling() {
+            if (this.domainRegisterStatusTimer) {
+                clearInterval(this.domainRegisterStatusTimer);
+                this.domainRegisterStatusTimer = null;
+            }
+        },
+        async previewDomainRegisterDomains() {
+            if (!this.domainRegisterEnabled) return;
+            try {
+                const q = new URLSearchParams({
+                    domain_prefix: this.domainRegister.domain_prefix || 'sub2api',
+                    domain_suffix: this.domainRegister.domain_suffix || 'dpdns.org',
+                    domain_start: String(this.domainRegister.domain_start ?? 27),
+                    domain_end: String(this.domainRegister.domain_end ?? 127),
+                    domain_pad: String(this.domainRegister.domain_pad ?? 4),
+                });
+                const res = await this.authFetch('/api/domain-register/preview-domains?' + q.toString());
+                const data = await res.json();
+                if (data && data.data) {
+                    this.domainRegister.preview = data.data.sample || (data.data.domains || []).slice(0, 5);
+                }
+            } catch (e) {}
+        },
+
+
+        async inviteDomainRegisterSignup() {
+            try {
+                this.ensureDomainRegisterStatusPolling();
+                const ref = this.normalizeDomainRegisterInvite();
+                if (!ref) {
+                    this.showToast('请填写邀请码（可粘贴带 ref= 的邀请链接）', 'error');
+                    return;
+                }
+                this.showToast('邀请注册进行中…', 'info');
+                const res = await this.authFetch('/api/domain-register/invite-signup', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        invite_ref: ref,
+                    })
+                });
+                const data = await res.json();
+                if (data && data.status === 'success') {
+                    this.showToast('邀请成功：主账号额度应已增加（Token 不变）', 'success');
+                    this.refreshDomainRegisterStatus();
+                } else {
+                    this.showToast('邀请失败：' + ((data && data.message) || ''), 'error');
+                    this.refreshDomainRegisterStatus();
+                }
+            } catch (e) {
+                this.showToast('邀请请求异常', 'error');
+            }
+        },
+        async startDomainRegisterBatch() {
+            try {
+                this.ensureDomainRegisterStatusPolling();
+                const ref = this.normalizeDomainRegisterInvite();
+                if (this.domainRegister.auto_invite_signup && !ref) {
+                    this.showToast('已开启自动邀请：请先填写邀请码', 'warning');
+                }
+                const res = await this.authFetch('/api/domain-register/start', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        api_token: this.domainRegister.api_token,
+                        invite_ref: ref || '',
+                        auto_invite_signup: !!this.domainRegister.auto_invite_signup,
+                        domain_prefix: this.domainRegister.domain_prefix,
+                        domain_suffix: this.domainRegister.domain_suffix,
+                        domain_start: this.domainRegister.domain_start,
+                        domain_end: this.domainRegister.domain_end,
+                        domain_pad: this.domainRegister.domain_pad,
+                    })
+                });
+                const data = await res.json();
+                if (data.status === 'success') {
+                    this.showToast(data.message || '已启动', 'success');
+                    this.refreshDomainRegisterStatus();
+                } else {
+                    this.showToast(data.message || '启动失败', 'error');
+                }
+            } catch (e) {
+                this.showToast(String(e), 'error');
+            }
+        },
+        async stopDomainRegisterBatch() {
+            try { this.stopDomainRegisterStatusPolling(); } catch (e) {}
+            try {
+                this.domainRegister.running = false;
+                this.domainRegister.statusText = '已请求停止';
+                this.showToast('已请求停止', 'success');
+            } catch (e) {}
+            try {
+                this.authFetch('/api/domain-register/stop', { method: 'POST', body: '{}' }).catch(() => {});
+            } catch (e) {}
+        },
+
         async authFetch(url, options = {}) {
             const token = localStorage.getItem('auth_token');
             if (!options.headers) options.headers = {};
@@ -1231,7 +1475,13 @@ createApp({
             if(this.statsTimer) clearInterval(this.statsTimer);
         },
         async initApp() {
+            await this.loadPlugins();
+
             await this.fetchConfig();
+            if (this.domainRegisterEnabled) {
+                this.applyDomainRegisterFromConfig();
+                if (this.currentTab === 'domain_register') this.ensureDomainRegisterStatusPolling();
+            }
             if (this.config?.enable_mail_domain_runtime_control) {
                 await this.fetchMailDomainRuntimeStats({ force: true });
             } else {
@@ -1484,6 +1734,16 @@ createApp({
                 }
                 if (!this.config.reg_mode) {
                         this.config.reg_mode = 'email';
+                    }
+                if (!this.config.reg_provider) {
+                        this.config.reg_provider = 'openai';
+                    }
+                if (!this.config.grok || typeof this.config.grok !== 'object') {
+                        this.config.grok = {
+                            oauth_timeout: 180
+                        };
+                    } else {
+                        if (this.config.grok.oauth_timeout === undefined) this.config.grok.oauth_timeout = 180;
                     }
                 if (!this.config.tg_bot.template_success) {
                     this.config.tg_bot.template_success = "🎉 <b>注册成功</b>\n⏰ 时间: <code>{time}</code>\n📧 账号: <code>{email}</code>\n🔑 密码: <code>{password}</code>";
@@ -1898,6 +2158,9 @@ createApp({
                 }
                 this.config.raw_proxy_pool.enable = normalizeBooleanLike(this.config.raw_proxy_pool.enable, false);
                 this.config.raw_proxy_pool.proxy_list = this.rawProxyListStr.split('\n').map(s => s.trim()).filter(s => s);
+                if (this.domainRegisterEnabled) {
+                    this.syncDomainRegisterToConfig();
+                }
                 const res = await this.authFetch('/api/config', {
                     method: 'POST', body: JSON.stringify(this.config)
                 });
@@ -1905,6 +2168,7 @@ createApp({
                 if(data.status === 'success') {
                     this.showToast(data.message, "success");
                     await this.fetchConfig();
+                    if (this.domainRegisterEnabled) this.applyDomainRegisterFromConfig();
                     await this.fetchMailDomainRuntimeStats({ force: true });
                     this.queuePollStats();
                 } else { this.showToast("保存失败：" + data.message, "error"); }
@@ -1986,6 +2250,13 @@ createApp({
                 this.toggleMobileNav(false);
             }
             window.location.hash = tabId;
+            if (tabId === 'domain_register') {
+                this.refreshDomainRegisterStatus();
+                this.ensureDomainRegisterStatusPolling();
+                this.previewDomainRegisterDomains();
+            } else if (!(this.domainRegister && this.domainRegister.running)) {
+                this.stopDomainRegisterStatusPolling();
+            }
 			if (tabId === 'console') {
 				this.queuePollStats();
 			}
@@ -2339,10 +2610,10 @@ createApp({
             const selectedObjs = this.accounts.filter(acc => this.selectedAccounts.includes(acc.email));
             const targetAccounts = selectedObjs.filter(acc => !acc.push_platform || !acc.push_platform.toUpperCase().includes('SUB2API'));
 
-            if (targetAccounts.length === 0) {
-                this.showToast("⚠️ 选中的账号都已推送过 Sub2API，无需重复推送！", "warning");
-                return;
-            }
+            // if (targetAccounts.length === 0) {
+            //     this.showToast("⚠️ 选中的账号都已推送过 Sub2API，无需重复推送！", "warning");
+            //     return;
+            // }
 
             const skippedCount = this.selectedAccounts.length - targetAccounts.length;
             const extraMsg = skippedCount > 0 ? `\n(已自动帮您过滤跳过 ${skippedCount} 个重复账号)` : '';
@@ -2376,10 +2647,10 @@ createApp({
             const selectedObjs = this.accounts.filter(acc => this.selectedAccounts.includes(acc.email));
             const targetAccounts = selectedObjs.filter(acc => !acc.push_platform || !acc.push_platform.toUpperCase().includes('IMAGE2API'));
 
-            if (targetAccounts.length === 0) {
-                this.showToast("⚠️ 选中的账号都已推送过 Image2API，无需重复推送！", "warning");
-                return;
-            }
+            // if (targetAccounts.length === 0) {
+            //     this.showToast("⚠️ 选中的账号都已推送过 Image2API，无需重复推送！", "warning");
+            //     return;
+            // }
 
             const skippedCount = this.selectedAccounts.length - targetAccounts.length;
             const extraMsg = skippedCount > 0 ? `\n(已自动帮您过滤跳过 ${skippedCount} 个重复账号)` : '';
@@ -2410,25 +2681,25 @@ createApp({
                 if (!this.config.cpa_mode.enable) {
                     this.showToast("🚫 无法推送：请先配置 CPA 参数！", "warning"); return;
                 }
-                if (account.push_platform && account.push_platform.toUpperCase().includes('CPA')) {
-                    this.showToast("⚠️ 该账号已在 CPA 平台，无需重复推送！", "warning"); return;
-                }
+                // if (account.push_platform && account.push_platform.toUpperCase().includes('CPA')) {
+                //     this.showToast("⚠️ 该账号已在 CPA 平台，无需重复推送！", "warning"); return;
+                // }
             }
             if (action === 'push_sub2api') {
                 if (!this.config.sub2api_mode.enable) {
                     this.showToast("🚫 无法推送：请先配置 Sub2API 参数！", "warning"); return;
                 }
-                if (account.push_platform && account.push_platform.toUpperCase().includes('SUB2API')) {
-                    this.showToast("⚠️ 该账号已在 Sub2API 平台，无需重复推送！", "warning"); return;
-                }
+                // if (account.push_platform && account.push_platform.toUpperCase().includes('SUB2API')) {
+                //     this.showToast("⚠️ 该账号已在 Sub2API 平台，无需重复推送！", "warning"); return;
+                // }
             }
             if (action === 'push_image2api') {
                 if (!this.config.image2api_mode || !this.config.image2api_mode.enable) {
                     this.showToast("🚫 无法推送：请先配置 Image2API 参数！", "warning"); return;
                 }
-                if (account.push_platform && account.push_platform.toUpperCase().includes('IMAGE2API')) {
-                    this.showToast("⚠️ 该账号已在 Image2API 平台，无需重复推送！", "warning"); return;
-                }
+                // if (account.push_platform && account.push_platform.toUpperCase().includes('IMAGE2API')) {
+                //     this.showToast("⚠️ 该账号已在 Image2API 平台，无需重复推送！", "warning"); return;
+                // }
             }
             this.currentTab = 'console';
             try {
@@ -2905,12 +3176,42 @@ createApp({
                     if (Array.isArray(raw)) groups = raw;
                     else if (raw && Array.isArray(raw.list)) groups = raw.list;
                     else if (raw && Array.isArray(raw.data)) groups = raw.data;
+                    else if (raw && Array.isArray(raw.items)) groups = raw.items;
 
                     this.sub2apiGroups = groups;
+
+                    // 清理配置里已在线上删除的分组 ID，避免推送失败
+                    const validIds = new Set(
+                        groups
+                            .map(g => String((g && (g.id ?? g.group_id ?? g.groupId ?? g.ID)) ?? '').trim())
+                            .filter(Boolean)
+                    );
+                    const selected = String(this.config.sub2api_mode.account_group_ids || '')
+                        .split(',')
+                        .map(s => s.trim())
+                        .filter(Boolean);
+                    const kept = selected.filter(id => validIds.has(id));
+                    const dropped = selected.filter(id => !validIds.has(id));
+                    if (dropped.length) {
+                        this.config.sub2api_mode.account_group_ids = kept.join(',');
+                        try {
+                            await this.saveConfig();
+                            this.showToast(
+                                `已清除失效分组 ID: ${dropped.join(', ')}，并已自动保存配置`,
+                                'warning'
+                            );
+                        } catch (e) {
+                            this.showToast(
+                                `已清除失效分组 ID: ${dropped.join(', ')}。自动保存失败，请手动点击保存配置`,
+                                'warning'
+                            );
+                        }
+                    }
+
                     if (groups.length === 0) {
-                        this.showToast('No Sub2API groups found. Create one in Sub2API first.', 'warning');
-                    } else {
-                        this.showToast(`Fetched ${groups.length} Sub2API groups.`, 'success');
+                        this.showToast('未找到 Sub2API 分组，请先在 Sub2API 创建。', 'warning');
+                    } else if (!dropped.length) {
+                        this.showToast(`已获取 ${groups.length} 个 Sub2API 分组`, 'success');
                     }
                 } else {
                     this.showToast(data.message || 'Failed to fetch Sub2API groups.', 'error');
@@ -3274,7 +3575,7 @@ async exportSub2Api() {
             try {
                 const res = await this.authFetch('/api/cloud/action', {
                     method: 'POST',
-                    body: JSON.stringify({ accounts: [{id: String(acc.id), type: acc.account_type}], action: action })
+                    body: JSON.stringify({ accounts: [{id: String(acc.id), type: acc.account_type, platform: (acc.details && (acc.details.platform || acc.details.type)) || ''}], action: action })
                 });
                 const result = await res.json();
                 if (result.updated_details && result.updated_details[acc.id]) {
@@ -3332,9 +3633,11 @@ async exportSub2Api() {
                 return this.showToast('请先勾选需要操作的账号', 'warning');
             }
             if (action === 'delete' && !confirm(`⚠️ 危险操作：确认删除选中的 ${this.selectedCloud.length} 个账号吗？`)) return;
-            const actionAccounts = this.selectedCloud.map(key => {
-                const [id, type] = key.split('|');
-                return { id: String(id), type: type };
+            const actionAccounts = this.selectedCloud.map(k => {
+                const [id, type] = String(k).split('|');
+                const row = this.cloudAccounts.find(a => String(a.id) === String(id) && a.account_type === type);
+                const platform = (row && row.details && (row.details.platform || row.details.type)) || '';
+                return { id: String(id), type: type, platform };
             });
             const actionName = action === 'check' ? '测活' : (action === 'enable' ? '启用' : (action === 'disable' ? '禁用' : (action === 'refresh' ? '刷新凭证' : '删除')));
             this.showToast(`正在批量 ${actionName} ${this.selectedCloud.length} 个账号，耗时较长请耐心等待...`, 'info');
@@ -3765,6 +4068,20 @@ async exportSub2Api() {
                     this._extDetectionTimer = null;
                 }
             }, 2000);
+        },
+        async changeRegProvider(provider) {
+            if (!this.config) return;
+            const next = (provider === 'grok') ? 'grok' : 'openai';
+            this.config.reg_provider = next;
+            if (!this.config.grok || typeof this.config.grok !== 'object') {
+                this.config.grok = {
+                            oauth_timeout: 180
+                        };
+            } else {
+                if (this.config.grok.oauth_timeout === undefined) this.config.grok.oauth_timeout = 180;
+            }
+            await this.saveConfig();
+            this.showToast(`注册平台已切换为: ${next === 'grok' ? 'Grok/xAI' : 'OpenAI(默认)'}`, 'info');
         },
         async changeRegMode(mode) {
             if (!this.config) return;
@@ -4706,7 +5023,7 @@ async exportSub2Api() {
             this.config.team_mode.overspeed = isTurningOn;
             await this.saveConfig();
             this.showToast(`🏎️ 超速妙模式已${isTurningOn ? '开启' : '关闭'}`, 'success');
-            this.showToast(`超速妙模式最大4线程，线程请不要设置过高，正常账号请不要开启该功能`, 'success');
+            this.showToast(`超速妙模式必须使用域名邮箱，使用微软、谷歌等邮箱请不要开启`, 'success');
         },
         async uploadLicenseFile() {
             const fileInput = document.getElementById('licenseFileInput');

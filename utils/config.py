@@ -1,4 +1,4 @@
-import os
+﻿import os
 import queue
 import threading
 import yaml
@@ -178,7 +178,7 @@ def init_config():
                 print(f"[{ts()}] [WARNING] 自动补全配置文件写入失败: {e}")
 
     return user_config
-APP_VERSION = "v17.0.2"
+APP_VERSION = "v18.0.3"
 _c: dict = {}
 WEB_PASSWORD: str = "admin"
 RETAIN_REG_ONLY: bool = False
@@ -389,6 +389,9 @@ DROPMAIL_TOKEN: str = ""
 EMAILNATOR_COOKIE: str = ""
 MAILSAC_API_KEY: str = ""
 REG_MODE: str = "email"
+REG_PROVIDER: str = "openai"
+# Grok
+GROK_OAUTH_TIMEOUT: float = 180.0
 DB_TYPE: str = "sqlite"
 MYSQL_CFG: dict = {}
 _sub2api_proxy_rotation_lock = threading.Lock()
@@ -405,8 +408,13 @@ OPENAI_CPA_WEBHOOK_SECRET = ""
 USE_ORIGINAL_PASSWORD_FLOW: bool = False
 CF_API_EMAIL: str = ""
 CF_API_KEY: str = ""
+DOMAIN_REGISTER: dict = {}
+DIGITALPLAT: dict = {}  # compat alias
 TEAM_MODE_ENABLE: bool = False
 TEAM_MODE_OVERSPEED: bool = False
+ENABLE_CODEX_AGENT_IDENTITY: bool = False
+
+
 def reset_sub2api_proxy_rotation():
     global _sub2api_proxy_rotation_index
     with _sub2api_proxy_rotation_lock:
@@ -472,7 +480,7 @@ def reload_all_configs(new_config_dict=None):
     global SUB2API_DEFAULT_PROXY_POOL
     global SUB2API_ACCOUNT_RATE_MULTIPLIER, SUB2API_ACCOUNT_GROUP_IDS, SUB2API_ENABLE_WS_MODE
     global ENABLE_IMAGE2API_MODE, IMAGE2API_URL, IMAGE2API_KEY, IMAGE2API_RETAIN_REG_ONLY, IMAGE2API_IMG_ONLY_MODE
-    global CF_API_EMAIL, CF_API_KEY
+    global CF_API_EMAIL, CF_API_KEY, DOMAIN_REGISTER, DIGITALPLAT
     global LUCKMAIL_API_KEY, LUCKMAIL_PREFERRED_DOMAIN, LUCKMAIL_EMAIL_TYPE, LUCKMAIL_VARIANT_MODE, LUCKMAIL_REUSE_PURCHASED, LUCKMAIL_TAG_ID
     global HERO_SMS_ENABLED, HERO_SMS_API_KEY, HERO_SMS_BASE_URL, HERO_SMS_COUNTRY, HERO_SMS_SERVICE
     global HERO_SMS_AUTO_PICK_COUNTRY, HERO_SMS_REUSE_PHONE, HERO_SMS_MAX_PRICE, HERO_SMS_VERIFY_ON_REGISTER
@@ -495,6 +503,9 @@ def reload_all_configs(new_config_dict=None):
     global CLUSTER_SYNC_SHARED_DIR, CLUSTER_SYNC_IMPORT_POLL_SEC, CLUSTER_SYNC_MAX_RETRIES, CLUSTER_SYNC_PROGRESS_FLUSH_EVERY
     global CLUSTER_SYNC_STALE_FILE_MAX_AGE_HOURS, CLUSTER_SYNC_MAX_FILE_SIZE_MB, CLUSTER_SYNC_MAX_RECORDS, CLUSTER_SYNC_REQUIRE_CUSTOM_SECRET
     global REG_MODE
+    global REG_PROVIDER
+    # Grok 仅加载可配置项；其余固定常量不在此处改写
+    global GROK_OAUTH_TIMEOUT
     global LOCAL_MS_ENABLE_FISSION, LOCAL_MS_MASTER_EMAIL, LOCAL_MS_PASSWORD, LOCAL_MS_CLIENT_ID, LOCAL_MS_REFRESH_TOKEN, LOCAL_MS_POOL_FISSION
     global LOCAL_MS_SUFFIX_MODE, LOCAL_MS_SUFFIX_LEN_MIN, LOCAL_MS_SUFFIX_LEN_MAX
     global DB_TYPE, MYSQL_CFG
@@ -515,6 +526,7 @@ def reload_all_configs(new_config_dict=None):
     global FIVESIM_REUSE_PHONE, FIVESIM_REUSE_MAX
     global OPENAI_CPA_WEBHOOK_SECRET, USE_ORIGINAL_PASSWORD_FLOW
     global TEAM_MODE_ENABLE, TEAM_MODE_OVERSPEED
+    global ENABLE_CODEX_AGENT_IDENTITY
     base_yaml_config = init_config()
 
     _db_conf = base_yaml_config.get("database", {})
@@ -632,6 +644,7 @@ def reload_all_configs(new_config_dict=None):
 
     WEB_PASSWORD = str(_c.get("web_password", "admin")).strip()
     RETAIN_REG_ONLY = safe_bool(_c.get("retain_reg_only", False))
+    ENABLE_CODEX_AGENT_IDENTITY = safe_bool(_c.get("enable_codex_agent_identity", False))
 
     EMAIL_API_MODE = _c.get("email_api_mode", "cloudflare_temp_email")
     MAIL_DOMAINS = _c.get("mail_domains", "")
@@ -719,6 +732,10 @@ def reload_all_configs(new_config_dict=None):
 
     CF_API_EMAIL = _c.get("cf_api_email", "")
     CF_API_KEY = _c.get("cf_api_key", "")
+    DOMAIN_REGISTER = _c.get("domain_register") if isinstance(_c.get("domain_register"), dict) else (
+        _c.get("digitalplat") if isinstance(_c.get("digitalplat"), dict) else {}
+    )
+    DIGITALPLAT = DOMAIN_REGISTER  # backward compatible alias
 
     _ocpa = _c.get("openai_cpa", {})
     OPENAI_CPA_WEBHOOK_SECRET = str(_ocpa.get("webhook_secret", "")).strip()
@@ -957,6 +974,19 @@ def reload_all_configs(new_config_dict=None):
 
     REG_MODE = str(_c.get("reg_mode", "email")).strip().lower()
 
+    REG_PROVIDER = str(_c.get("reg_provider", "openai")).strip().lower()
+    if REG_PROVIDER not in {"openai", "grok"}:
+        REG_PROVIDER = "openai"
+
+    # Grok
+    _grok = _c.get("grok", {}) if isinstance(_c.get("grok"), dict) else {}
+    try:
+        GROK_OAUTH_TIMEOUT = float(_grok.get("oauth_timeout", 180.0) or 180.0)
+    except Exception:
+        GROK_OAUTH_TIMEOUT = 180.0
+    if GROK_OAUTH_TIMEOUT <= 0:
+        GROK_OAUTH_TIMEOUT = 180.0
+
     _temporam = _c.get("temporam", {})
     TEMPORAM_COOKIE = str(_temporam.get("cookie") or "").strip()
 
@@ -1012,3 +1042,4 @@ def reload_all_configs(new_config_dict=None):
     print(f"[{ts()}] [系统] 核心配置已完成同步。")
 
 reload_all_configs()
+

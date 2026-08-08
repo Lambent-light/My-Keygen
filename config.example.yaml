@@ -1,10 +1,14 @@
-# [邮箱 API 模式选择]
+﻿# [邮箱 API 模式选择]
 # https://github.com/smanx/freemail
 # https://github.com/dreamhunter2333/cloudflare_temp_email
 # https://github.com/maillab/cloud-mail
 # https://github.com/s12ryt/mail-curl
 
 reg_mode: "email"
+# 注册平台切换: openai(默认) | grok
+reg_provider: "openai"
+grok:
+  oauth_timeout: 180
 # 可选值: "imap" / "freemail" / "cloudflare_temp_email" / "cloudmail" / "mail_curl" / "luckmail"
 email_api_mode: "cloudflare_temp_email"
 
@@ -469,6 +473,17 @@ cluster_upload_timeout_sec: "15"
 cluster_node_name: "NODE-1"
 cluster_master_url: ""
 cluster_secret: "wenfxl666"
-
 # 是否放弃强行变道走无密码OTP
 disable_forced_takeover: true
+enable_codex_agent_identity: false
+
+# [可选插件] 仅当 plugin/*/manifest.json 存在时生效
+domain_register:
+  api_token: ""
+  invite_ref: ""
+  auto_invite_signup: true
+  domain_prefix: sub2api
+  domain_suffix: dpdns.org
+  domain_start: 27
+  domain_end: 127
+  domain_pad: 4

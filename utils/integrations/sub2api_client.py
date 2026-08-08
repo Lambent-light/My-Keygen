@@ -1,6 +1,8 @@
 import json
 import logging
+import threading
 import time
+import uuid
 from urllib.parse import urlparse
 from datetime import datetime, timezone
 from typing import Dict, Any, List, Optional, Tuple
@@ -30,6 +32,8 @@ def get_sub2api_push_settings() -> Dict[str, Any]:
     else:
         group_ids = [int(item.strip()) for item in str(raw_group_ids or "").split(",") if item.strip().isdigit()]
 
+    use_codex = getattr(cfg, "SUB2API_USE_CODEX_IMPORT", False) or getattr(cfg, "SUB2API_AUTH_FORMAT",
+                                                                           "") == "agent_identity"
     return {
         "concurrency": as_int(getattr(cfg, "SUB2API_ACCOUNT_CONCURRENCY", 10), 10, 1),
         "load_factor": as_int(getattr(cfg, "SUB2API_ACCOUNT_LOAD_FACTOR", 10), 10, 1),
@@ -49,30 +53,106 @@ def _build_account_extra(settings: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def _build_account_item(token_data: Dict[str, Any], settings: Dict[str, Any], proxy_obj: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-    account_item = {
-        "name": str(token_data.get("email", "unknown"))[:64],
-        "platform": "openai",
-        "type": "oauth",
-        "credentials": {
-            "access_token": token_data.get("access_token", ""),
-            "chatgpt_account_id": token_data.get("account_id", ""),
-            "client_id": token_data.get("client_id", ""),
-            "expires_at": int(time.time() + 864000),
-            "expires_in": 863999,
-            "model_mapping": {
-                "gpt-5.4-mini": "gpt-5.4-mini",
-                "gpt-5.5": "gpt-5.5",
+    email = str(token_data.get("email") or "unknown").strip() or "unknown"
+    name = email[:64]
+
+    provider = str(token_data.get("provider") or token_data.get("type") or "").lower()
+    status = str(token_data.get("status") or "").lower()
+    is_grok = (
+        provider in ("grok", "xai")
+        or status.startswith("grok")
+        or "grok_oauth" in status
+    )
+
+    if is_grok:
+        access = str(token_data.get("access_token") or "").strip()
+        refresh = str(token_data.get("refresh_token") or "").strip()
+
+        expires_in = token_data.get("expires_in", 21600)
+        try:
+            expires_in = int(expires_in)
+        except (TypeError, ValueError):
+            expires_in = 21600
+
+        expires_at = token_data.get("expires_at")
+        if expires_at in (None, ""):
+            expires_at = int(time.time()) + expires_in
+        else:
+            try:
+                expires_at = int(expires_at)
+            except (TypeError, ValueError):
+                expires_at = int(time.time()) + expires_in
+
+        credentials: Dict[str, Any] = {
+            "access_token": access,
+            "refresh_token": refresh,
+            "token_type": str(token_data.get("token_type") or "Bearer"),
+            "email": email,
+            "expires_in": expires_in,
+            "expires_at": expires_at,
+        }
+        id_token = str(token_data.get("id_token") or "").strip()
+        if id_token:
+            credentials["id_token"] = id_token
+        base_url = str(token_data.get("base_url") or "").strip()
+        if base_url:
+            credentials["base_url"] = base_url
+        token_endpoint = str(token_data.get("token_endpoint") or "").strip()
+        if token_endpoint:
+            credentials["token_endpoint"] = token_endpoint
+        client_id = str(token_data.get("client_id") or "").strip()
+        if client_id:
+            credentials["client_id"] = client_id
+        scope = str(token_data.get("scope") or "").strip()
+        if scope:
+            credentials["scope"] = scope
+        sub = str(token_data.get("sub") or "").strip()
+        if sub:
+            credentials["sub"] = sub
+
+        account_item: Dict[str, Any] = {
+            "name": name,
+            "platform": "grok",
+            "type": "oauth",
+            "credentials": credentials,
+            "extra": {
+                "email": email,
+                "source": "openai-cpa",
             },
-            "organization_id": token_data.get("workspace_id", ""),
-            "refresh_token": token_data.get("refresh_token", ""),
-        },
-        "extra": _build_account_extra(settings),
-        "concurrency": settings["concurrency"],
-        "priority": settings["priority"],
-        "rate_multiplier": settings["rate_multiplier"],
-        "auto_pause_on_expired": True,
-    }
-    if settings["group_ids"]:
+            "concurrency": settings["concurrency"],
+            "priority": settings["priority"],
+            "rate_multiplier": settings["rate_multiplier"],
+            "auto_pause_on_expired": True,
+        }
+    else:
+        account_item = {
+            "name": name,
+            "platform": "openai",
+            "type": "oauth",
+            "credentials": {
+                "access_token": token_data.get("access_token", ""),
+                "chatgpt_account_id": token_data.get("account_id", ""),
+                "client_id": token_data.get("client_id", ""),
+                "expires_at": int(time.time() + 864000),
+                "expires_in": 863999,
+                "model_mapping": {
+                    "gpt-5.4": "gpt-5.4",
+                    "gpt-5.4-mini": "gpt-5.4-mini",
+                    "gpt-5.5": "gpt-5.5",
+                    "gpt-5.6-luna": "gpt-5.6-luna",
+                    "gpt-5.6-terra": "gpt-5.6-terra"
+                },
+                "organization_id": token_data.get("workspace_id", ""),
+                "refresh_token": token_data.get("refresh_token", ""),
+            },
+            "extra": _build_account_extra(settings),
+            "concurrency": settings["concurrency"],
+            "priority": settings["priority"],
+            "rate_multiplier": settings["rate_multiplier"],
+            "auto_pause_on_expired": True,
+        }
+
+    if settings.get("group_ids"):
         account_item["group_ids"] = settings["group_ids"]
     if proxy_obj and "proxy_key" in proxy_obj:
         account_item["proxy_key"] = proxy_obj["proxy_key"]
@@ -115,6 +195,10 @@ class Sub2APIClient:
             "timeout": 15,
             "impersonate": "chrome110",
         }
+        self._sub2api_proxy_ids: Dict[str, int] = {}
+        self._sub2api_proxy_ids_lock = threading.Lock()
+        self._valid_group_ids_cache = None
+        self._valid_group_ids_ts = 0.0
 
     def _build_network_error(self, exc: Exception) -> str:
         msg = str(exc)
@@ -151,8 +235,106 @@ class Sub2APIClient:
 
         return False, error_msg
 
+    def _extract_group_id(self, item: Any) -> Optional[int]:
+        if not isinstance(item, dict):
+            return None
+        for key in ("id", "group_id", "groupId", "ID"):
+            raw = item.get(key)
+            if raw is None:
+                continue
+            try:
+                return int(raw)
+            except (TypeError, ValueError):
+                text = str(raw).strip()
+                if text.isdigit():
+                    return int(text)
+        return None
+
+    def _fetch_valid_group_ids(self, *, force: bool = False):
+        now = time.time()
+        cached = getattr(self, "_valid_group_ids_cache", None)
+        ts = float(getattr(self, "_valid_group_ids_ts", 0.0) or 0.0)
+        if not force and isinstance(cached, set) and (now - ts) < 60.0:
+            return set(cached)
+
+        try:
+            response = cffi_requests.get(
+                f"{self.api_url}/api/v1/admin/groups/all",
+                headers=self.headers,
+                timeout=10,
+                impersonate="chrome110",
+                proxies=None,
+            )
+            ok, result = self._handle_response(response, success_codes=(200,))
+            if not ok:
+                logger.warning("获取 Sub2API 分组失败，跳过分组校验: %s", result)
+                return None
+
+            raw = result.get("data", result) if isinstance(result, dict) else result
+            groups = []
+            if isinstance(raw, list):
+                groups = raw
+            elif isinstance(raw, dict):
+                if isinstance(raw.get("list"), list):
+                    groups = raw.get("list") or []
+                elif isinstance(raw.get("data"), list):
+                    groups = raw.get("data") or []
+                elif isinstance(raw.get("items"), list):
+                    groups = raw.get("items") or []
+
+            valid = set()
+            for item in groups:
+                gid = self._extract_group_id(item)
+                if gid is not None:
+                    valid.add(gid)
+
+            self._valid_group_ids_cache = set(valid)
+            self._valid_group_ids_ts = now
+            return set(valid)
+        except Exception as exc:
+            logger.warning("获取 Sub2API 分组异常，跳过分组校验: %s", exc)
+            return None
+
+    def _sanitize_group_ids(self, group_ids: List[int]) -> List[int]:
+        cleaned = []
+        seen = set()
+        for item in group_ids or []:
+            try:
+                gid = int(item)
+            except (TypeError, ValueError):
+                continue
+            if gid in seen:
+                continue
+            seen.add(gid)
+            cleaned.append(gid)
+        if not cleaned:
+            return []
+
+        valid = self._fetch_valid_group_ids(force=False)
+        if valid is None:
+            return cleaned
+
+        kept = [gid for gid in cleaned if gid in valid]
+        dropped = [gid for gid in cleaned if gid not in valid]
+        if dropped:
+            logger.warning(
+                "配置中的 Sub2API 分组已在线上删除，已自动忽略: %s；有效分组: %s",
+                dropped,
+                kept,
+            )
+            try:
+                print(
+                    f"[Sub2API] 分组 {dropped} 已不存在，推送时自动跳过；"
+                    f"请重新「获取线上分组」并保存配置"
+                )
+            except Exception:
+                pass
+        return kept
+
     def _get_push_settings(self) -> Dict[str, Any]:
-        return get_sub2api_push_settings()
+        settings = dict(get_sub2api_push_settings())
+        settings["group_ids"] = self._sanitize_group_ids(settings.get("group_ids") or [])
+        return settings
 
     def _build_account_extra(self, settings: Dict[str, Any]) -> Dict[str, Any]:
         return _build_account_extra(settings)
@@ -198,7 +380,7 @@ class Sub2APIClient:
 
         try:
             headers = self.headers.copy()
-            headers["Idempotency-Key"] = f"import-{int(time.time())}"
+            headers["Idempotency-Key"] = f"import-{uuid.uuid4()}"
             response = cffi_requests.post(
                 url,
                 json=payload,
@@ -358,6 +540,26 @@ class Sub2APIClient:
         account_name = working_token_data.get("email", "unknown")[:64]
         group_ids = settings.get("group_ids") or []
 
+        is_grok = (
+            str(working_token_data.get("type", "") or "").lower() == "xai"
+            or str(working_token_data.get("provider", "") or "").lower() == "grok"
+            or str(working_token_data.get("status", "") or "").lower().startswith("grok")
+            or (
+                bool(working_token_data.get("sso"))
+                and str(getattr(cfg, "REG_PROVIDER", "openai") or "").lower() == "grok"
+            )
+        )
+        if is_grok:
+            ok, msg = self._import_grok_sso(working_token_data, settings)
+            if ok:
+                self._force_bind_groups(account_name, group_ids)
+            return ok, msg
+
+        if getattr(cfg, "ENABLE_CODEX_AGENT_IDENTITY", False):
+            ok, msg = self._import_codex_session(working_token_data, settings)
+            if ok:
+                self._force_bind_groups(account_name, group_ids)
+            return ok, msg
 
         if not refresh_token or proxy_obj:
             ok, msg = self._import_account(working_token_data, settings)
@@ -373,8 +575,11 @@ class Sub2APIClient:
             "credentials": {
                 "refresh_token": refresh_token,
                 "model_mapping": {
+                    "gpt-5.4": "gpt-5.4",
                     "gpt-5.4-mini": "gpt-5.4-mini",
                     "gpt-5.5": "gpt-5.5",
+                    "gpt-5.6-luna": "gpt-5.6-luna",
+                    "gpt-5.6-terra": "gpt-5.6-terra"
                 }
             },
             "concurrency": settings["concurrency"],
@@ -415,17 +620,27 @@ class Sub2APIClient:
 
     def _force_bind_groups(self, account_name: str, group_ids: List[int]) -> None:
         try:
+            if hasattr(self, "_sanitize_group_ids"):
+                safe_group_ids = self._sanitize_group_ids(group_ids or [])
+            else:
+                safe_group_ids = list(group_ids or [])
             fetch_ok, accounts_resp = self.get_accounts(page=1, page_size=50)
-            if not fetch_ok: return
+            if not fetch_ok:
+                return
 
             items = accounts_resp.get("data", {}).get("items", []) if isinstance(accounts_resp, dict) else []
             for item in items:
                 if item.get("name") == account_name:
                     target_id = str(item.get("id"))
 
-                    if group_ids:
-                        self.update_account(target_id, {"group_ids": group_ids})
-                        logger.info(f"账号 {account_name} 分组强制绑定成功: {group_ids}")
+                    if safe_group_ids:
+                        ok, result = self.update_account(target_id, {"group_ids": safe_group_ids})
+                        if ok:
+                            logger.info(f"账号 {account_name} 分组强制绑定成功: {safe_group_ids}")
+                        else:
+                            logger.warning(
+                                f"账号 {account_name} 分组绑定失败(已忽略): {result}; groups={safe_group_ids}"
+                            )
                     self._refresh_created_account(target_id)
                     break
         except Exception as exc:
@@ -476,13 +691,14 @@ class Sub2APIClient:
             logger.error(f"刷新账号 {account_id} 失败: {exc}")
             return False, str(exc)
 
-    def test_account(self, account_id: int) -> Tuple[str, str]:
+    def test_account(self, account_id: int, model_id: str = None) -> Tuple[str, str]:
         url = f"{self.api_url}/api/v1/admin/accounts/{account_id}/test"
+        use_model = str(model_id or getattr(cfg, "SUB2API_TEST_MODEL", "") or "gpt-5.4-mini").strip()
         try:
             response = cffi_requests.post(
                 url,
                 headers=self.headers,
-                json={"model_id": cfg.SUB2API_TEST_MODEL},
+                json={"model_id": use_model},
                 timeout=60,
                 impersonate="chrome110",
             )
@@ -541,6 +757,261 @@ class Sub2APIClient:
             return False, "连接超时，请检查网络配置或服务器状态"
         except Exception as exc:
             return False, f"连接测试失败: {str(exc)}"
+
+    @staticmethod
+    def _proxy_signature(proxy_obj: Dict[str, Any]) -> Tuple[str, str, int, str, str]:
+        return (
+            str(proxy_obj.get("protocol", "")).strip().lower(),
+            str(proxy_obj.get("host", "")).strip().lower(),
+            int(proxy_obj.get("port", 0)),
+            str(proxy_obj.get("username", "")),
+            str(proxy_obj.get("password", "")),
+        )
+
+    def _ensure_sub2api_proxy(self, proxy_obj: Optional[Dict[str, Any]]) -> Optional[int]:
+        if not proxy_obj or not proxy_obj.get("proxy_key"):
+            return None
+
+        proxy_key = str(proxy_obj["proxy_key"])
+        with self._sub2api_proxy_ids_lock:
+            cached_id = self._sub2api_proxy_ids.get(proxy_key)
+        if cached_id is not None:
+            return cached_id
+
+        try:
+            signature = self._proxy_signature(proxy_obj)
+        except (TypeError, ValueError):
+            logger.warning("Invalid Sub2API proxy definition: %s", proxy_key)
+            return None
+
+        list_url = f"{self.api_url}/api/v1/admin/proxies/all"
+        try:
+            response = cffi_requests.get(
+                list_url,
+                headers=self.headers,
+                **self.request_kwargs,
+            )
+            ok, result = self._handle_response(response)
+            if ok and isinstance(result, dict):
+                proxy_items = result.get("data", [])
+                if isinstance(proxy_items, list):
+                    for item in proxy_items:
+                        if not isinstance(item, dict):
+                            continue
+                        try:
+                            item_signature = self._proxy_signature(item)
+                            item_id = int(item.get("id", 0))
+                        except (TypeError, ValueError):
+                            continue
+                        if item_id > 0 and item_signature == signature:
+                            with self._sub2api_proxy_ids_lock:
+                                self._sub2api_proxy_ids[proxy_key] = item_id
+                            return item_id
+            elif not ok:
+                logger.warning("Failed to list Sub2API proxies: %s", result)
+        except Exception as exc:
+            logger.warning("Failed to resolve Sub2API proxy %s: %s", proxy_key, exc)
+            return None
+
+        create_url = f"{self.api_url}/api/v1/admin/proxies"
+        create_payload = {
+            "name": proxy_obj.get("name") or "openai-cpa",
+            "protocol": proxy_obj.get("protocol"),
+            "host": proxy_obj.get("host"),
+            "port": proxy_obj.get("port"),
+            "username": proxy_obj.get("username", ""),
+            "password": proxy_obj.get("password", ""),
+        }
+        try:
+            response = cffi_requests.post(
+                create_url,
+                json=create_payload,
+                headers=self.headers,
+                timeout=30,
+                impersonate="chrome110",
+            )
+            ok, result = self._handle_response(response, success_codes=(200, 201))
+            if not ok:
+                logger.warning("Failed to create Sub2API proxy %s: %s", proxy_key, result)
+                return None
+
+            created = result.get("data", {}) if isinstance(result, dict) else {}
+            proxy_id = int(created.get("id", 0)) if isinstance(created, dict) else 0
+            if proxy_id <= 0:
+                logger.warning("Sub2API proxy creation returned no usable ID: %s", proxy_key)
+                return None
+
+            with self._sub2api_proxy_ids_lock:
+                self._sub2api_proxy_ids[proxy_key] = proxy_id
+            return proxy_id
+        except (TypeError, ValueError):
+            logger.warning("Sub2API proxy creation returned an invalid ID: %s", proxy_key)
+            return None
+        except Exception as exc:
+            logger.warning("Failed to create Sub2API proxy %s: %s", proxy_key, exc)
+            return None
+
+    def _import_grok_sso(self, token_data: Dict[str, Any], settings: Dict[str, Any]) -> Tuple[bool, str]:
+        """直接推送 Grok OAuth 账号到 Sub2API"""
+        url = f"{self.api_url}/api/v1/admin/accounts"
+
+        access = str(token_data.get("access_token") or "").strip()
+        refresh = str(token_data.get("refresh_token") or "").strip()
+        if not access or not refresh:
+            return False, "Grok 推送失败：缺少 access_token/refresh_token"
+
+        email = str(token_data.get("email") or "unknown").strip() or "unknown"
+        name = email[:64]
+
+        proxy_obj = token_data.get("sub2api_proxy")
+        proxy_id = None
+        if proxy_obj:
+            proxy_id = self._ensure_sub2api_proxy(proxy_obj)
+            if proxy_id is None:
+                return False, "Grok 账号代理同步失败：无法获取 Sub2API proxy_id"
+
+        expires_in = token_data.get("expires_in", 21600)
+        try:
+            expires_in = int(expires_in)
+        except (TypeError, ValueError):
+            expires_in = 21600
+
+        expires_at = token_data.get("expires_at")
+        if expires_at in (None, ""):
+            expires_at = int(time.time()) + expires_in
+        else:
+            try:
+                expires_at = int(expires_at)
+            except (TypeError, ValueError):
+                expires_at = int(time.time()) + expires_in
+
+        credentials: Dict[str, Any] = {
+            "access_token": access,
+            "refresh_token": refresh,
+            "token_type": str(token_data.get("token_type") or "Bearer"),
+            "email": email,
+            "expires_in": expires_in,
+            "expires_at": expires_at,
+        }
+        id_token = str(token_data.get("id_token") or "").strip()
+        if id_token:
+            credentials["id_token"] = id_token
+        base_url = str(token_data.get("base_url") or "").strip()
+        if base_url:
+            credentials["base_url"] = base_url
+        token_endpoint = str(token_data.get("token_endpoint") or "").strip()
+        if token_endpoint:
+            credentials["token_endpoint"] = token_endpoint
+        client_id = str(token_data.get("client_id") or "").strip()
+        if client_id:
+            credentials["client_id"] = client_id
+        scope = str(token_data.get("scope") or "").strip()
+        if scope:
+            credentials["scope"] = scope
+        sub = str(token_data.get("sub") or "").strip()
+        if sub:
+            credentials["sub"] = sub
+
+        payload: Dict[str, Any] = {
+            "name": name,
+            "platform": "grok",
+            "type": "oauth",
+            "credentials": credentials,
+            "extra": {
+                "email": email,
+                "source": "openai-cpa",
+            },
+            "concurrency": settings["concurrency"],
+            "priority": settings["priority"],
+            "rate_multiplier": settings["rate_multiplier"],
+            "auto_pause_on_expired": True,
+        }
+        group_ids = settings.get("group_ids") or []
+        if group_ids:
+            payload["group_ids"] = group_ids
+        if proxy_id is not None:
+            payload["proxy_id"] = proxy_id
+
+        try:
+            headers = self.headers.copy()
+            headers["Idempotency-Key"] = f"grok-{uuid.uuid4()}"
+            response = cffi_requests.post(
+                url,
+                json=payload,
+                headers=headers,
+                timeout=30,
+                impersonate="chrome110",
+                proxies=None,
+            )
+            ok, result = self._handle_response(response, success_codes=(200, 201))
+            if ok:
+                return True, "Sub2API Grok 账号导入成功"
+            return False, f"Grok 推送失败: {result}"
+        except Exception as exc:
+            return False, f"Grok 网络上传请求失败: {exc}"
+
+    def _import_codex_session(self, token_data: Dict[str, Any], settings: Dict[str, Any]) -> Tuple[bool, str]:
+        url = f"{self.api_url}/api/v1/admin/accounts/import/codex-session"
+        codex_agent = token_data.get("codex_agent") or token_data.get("codex_data")
+        if not codex_agent and ("agent_identity" in token_data or token_data.get("auth_mode") == "agent_identity"):
+            codex_agent = token_data
+        if not codex_agent:
+            return False, "启用 Codex 模式但 token_data 中未找到对应凭据数据"
+
+        email = (
+                token_data.get("email") or
+                codex_agent.get("email") or
+                codex_agent.get("agent_identity", {}).get("email") or
+                "unknown"
+        )
+
+        proxy_obj = token_data.get("sub2api_proxy")
+        proxy_id = self._ensure_sub2api_proxy(proxy_obj)
+        if proxy_obj and proxy_id is None:
+            return False, "Codex 账号代理同步失败：无法获取 Sub2API proxy_id"
+
+        payload = {
+            "content": json.dumps(codex_agent),
+            "name": str(email)[:64],
+            "notes": None,
+            "proxy_id": proxy_id,
+            "concurrency": settings["concurrency"],
+            "priority": settings["priority"],
+            "rate_multiplier": settings["rate_multiplier"],
+            "group_ids": settings["group_ids"],
+            "expires_at": None,
+            "auto_pause_on_expired": True,
+            "credential_extras": {
+                "model_mapping": {
+                    "gpt-5.4": "gpt-5.4",
+                    "gpt-5.4-mini": "gpt-5.4-mini",
+                    "gpt-5.5": "gpt-5.5",
+                    "gpt-5.6-luna": "gpt-5.6-luna",
+                    "gpt-5.6-terra": "gpt-5.6-terra"
+                }
+            },
+            "extra": self._build_account_extra(settings),
+            "update_existing": True
+        }
+
+        try:
+            headers = self.headers.copy()
+            headers["Idempotency-Key"] = f"codex-{uuid.uuid4()}"
+
+            response = cffi_requests.post(
+                url,
+                json=payload,
+                headers=headers,
+                timeout=30,
+                impersonate="chrome110",
+                proxies=None,
+            )
+            ok, result = self._handle_response(response, success_codes=(200, 201))
+            if ok:
+                return True, "Sub2API Codex 账号上传成功！"
+            return False, f"Codex 推送反馈异常: {str(result)}"
+        except Exception as exc:
+            return False, f"Codex 网络上传请求失败: {exc}"
 
 def _classify_sse_error(err_text: str) -> Tuple[str, str]:
     text = err_text.lower()

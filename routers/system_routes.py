@@ -1,4 +1,4 @@
-import hashlib
+﻿import hashlib
 import os
 import time
 import secrets
@@ -28,6 +28,7 @@ import utils.integrations.clash_manager as clash_manager
 from utils.memory_predictor import build_memory_report
 from utils.system_maintenance import get_cleanup_status
 import utils.config as cfg
+import utils.integrations.clash_manager as clash_manager
 
 router = APIRouter()
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -602,6 +603,9 @@ async def start_task(token: str = Depends(verify_token)):
         reload_all_configs()
     except Exception as e:
         print(f"[{core_engine.ts()}] [警告] 启动重载提示: {e}")
+
+    reg_provider = str(getattr(core_engine.cfg, "REG_PROVIDER", "openai") or "openai").strip().lower()
+    print(f"[{core_engine.ts()}] [系统] 启动任务，注册平台={reg_provider}")
 
     default_proxy = getattr(core_engine.cfg, 'DEFAULT_PROXY', None)
     args = DummyArgs(proxy=default_proxy if default_proxy else None)
@@ -1451,3 +1455,14 @@ def execute_native_update():
 
     except Exception as e:
         return {"status": "error", "message": f"本地更新异常: {str(e)}"}
+
+
+@router.get("/api/plugins")
+async def list_plugins(token: str = Depends(verify_token)):
+    try:
+        from utils.plugin_loader import discover_plugins
+        items = discover_plugins()
+    except Exception as exc:
+        return {"status": "error", "message": str(exc), "items": []}
+    return {"status": "success", "items": items}
+

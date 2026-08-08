@@ -1,4 +1,4 @@
-import os
+﻿import os
 import sys
 import json
 import time
@@ -193,7 +193,30 @@ def _find_first_available_port(host: str, start_port: int, max_ports: int = WEB_
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    try:
+        from utils.grok_auth.captcha import captcha_provider, ensure_captcha_ready
+        from utils import config as _cfg
+        provider = captcha_provider()
+        if provider in {"local", "local_http"}:
+            ok, msg = ensure_captcha_ready()
+            if not ok:
+                print(f"[{core_engine.ts()}] [WARNING] Grok本地过盾未就绪: {msg}", flush=True)
+    except Exception as e:
+        print(f"[{core_engine.ts()}] [WARNING] 本地过盾自动准备异常: {e}", flush=True)
+
     yield
+
+    try:
+        from utils.grok_auth.embedded_turnstile import stop_embedded_solver
+        stop_embedded_solver()
+    except Exception:
+        pass
+    try:
+        from utils.grok_auth.local_solver_manager import stop_local_solver_if_owned
+        stop_local_solver_if_owned()
+    except Exception:
+        pass
+
     print("\n" + "="*65, flush=True)
     print("🛑 接收到系统终止信号，正在强制结束引擎...", flush=True)
     try:
@@ -224,6 +247,15 @@ app.add_middleware(
 db_manager.init_db()
 
 app.include_router(api_routes.router)
+
+# 可选插件加载（存在 plugin/<name>/manifest.json 才挂载）
+try:
+    from utils.plugin_loader import register_all as _register_plugins
+    _loaded_plugins = _register_plugins(app)
+    if _loaded_plugins:
+        print(f"[{core_engine.ts()}] [plugins] loaded: " + ", ".join(_loaded_plugins))
+except Exception as _plugin_exc:
+    print("[plugins] skip: " + str(_plugin_exc))
 
 class DummyArgs:
     def __init__(self, proxy=None, once=False):
@@ -410,6 +442,16 @@ if __name__ == "__main__":
     try: reload_all_configs()
     except: pass
     atexit.register(_remove_pid_file)
+    try:
+        from utils.grok_auth.embedded_turnstile import stop_embedded_solver
+        atexit.register(stop_embedded_solver)
+    except Exception:
+        pass
+    try:
+        from utils.grok_auth.local_solver_manager import stop_local_solver_if_owned
+        atexit.register(stop_local_solver_if_owned)
+    except Exception:
+        pass
     existing_port = _find_existing_console_port(WEB_HOST, WEB_PORT)
     if existing_port is not None:
         print(f"[{core_engine.ts()}] [系统] Web 控制台已经在运行中，无需重复启动。")
@@ -423,7 +465,7 @@ if __name__ == "__main__":
         raise SystemExit(1)
 
     print("=" * 65)
-    print(f"[{core_engine.ts()}] [系统] OpenAI 全链路自动化生产与多维资源中转调度平台")
+    print(f"[{core_engine.ts()}] [系统] OpenAI/Grok 全链路自动化生产与多维资源中转调度平台")
     print(f"[{core_engine.ts()}] [系统] Author: (wenfxl)轩灵")
     print(f"[{core_engine.ts()}] [系统] 如果遇到问题请更换域名解决，目前eu.cc，xyz，cn，edu.cc，fun，icu，top，bbroot.com，dpdns.org，qzz.io，info等常见域名均不可用，请更换为冷门域名")
     print(f"[{core_engine.ts()}] [系统] 根据官网披露消息：add-phone主要面向美国、荷兰、法国、西班牙、英国、波兰、德国、日本、印度、巴基斯坦、阿尔及利亚、乌兹别克斯坦和乌克兰的新用户推出。暂无其他地区的计划。")
@@ -439,3 +481,4 @@ if __name__ == "__main__":
     sys.__stdout__.write(f"[{core_engine.ts()}] [系统] 结束请猛猛重复按CTRL+C \n")
     sys.__stdout__.flush()
     uvicorn.run(app, host=WEB_HOST, port=selected_port, log_level="warning", access_log=False, timeout_graceful_shutdown=1)
+
