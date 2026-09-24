@@ -29,7 +29,14 @@ SINGLE_CORE_LOG_PATH = os.path.join(BASE_PATH, "mihomo-core.log")
 SINGLE_CORE_PID_PATH = os.path.join(BASE_PATH, "mihomo-core.pid")
 
 
+def is_running_in_docker() -> bool:
+    if os.path.exists('/.dockerenv'):
+        return True
+
 def get_client():
+    if not is_running_in_docker():
+        return None
+
     try:
         return docker.from_env()
     except Exception as e:

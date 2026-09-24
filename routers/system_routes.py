@@ -609,11 +609,14 @@ async def start_task(token: str = Depends(verify_token)):
 
     default_proxy = getattr(core_engine.cfg, 'DEFAULT_PROXY', None)
     args = DummyArgs(proxy=default_proxy if default_proxy else None)
-    core_engine.run_stats.update({"success": 0, "failed": 0, "retries": 0, "pwd_blocked": 0, "phone_verify": 0, "start_time": time.time(),"target": 0})
+    core_engine.run_stats.update({"success": 0, "failed": 0, "retries": 0, "pwd_blocked": 0, "phone_verify": 0, "discard_count": 0, "start_time": time.time(),"target": 0})
     mail_service.start_mail_domain_runtime_tracking()
     if getattr(core_engine.cfg, 'ENABLE_CPA_MODE', False):
         engine.start_cpa(args)
         return {"status": "success", "message": "启动成功：已自动识别并开启 [CPA 智能仓管模式]"}
+    elif getattr(core_engine.cfg, 'ENABLE_GROK2API_MODE', False):
+        engine.start_grok2api(args)
+        return {"status": "success", "message": "启动成功：已自动识别并开启 [Grok2API 仓管模式]"}
     elif getattr(core_engine.cfg, 'ENABLE_SUB2API_MODE', False):
         engine.start_sub2api(args)
         return {"status": "success", "message": "启动成功：已自动识别并开启 [Sub2API 仓管模式]"}
@@ -679,7 +682,8 @@ async def get_stats(token: str = Depends(verify_token)):
         current_mode = "插件托管 (古法)"
     else:
         current_mode = "CPA 仓管" if getattr(core_engine.cfg, 'ENABLE_CPA_MODE', False) else (
-            "Sub2Api 仓管" if getattr(core_engine.cfg, 'ENABLE_SUB2API_MODE', False) else "常规量产")
+            "Grok2API 仓管" if getattr(core_engine.cfg, 'ENABLE_GROK2API_MODE', False) else (
+            "Sub2Api 仓管" if getattr(core_engine.cfg, 'ENABLE_SUB2API_MODE', False) else "常规量产"))
 
     domain_summary = mail_service.get_mail_domain_runtime_summary()
     memory_report = build_memory_report(getattr(core_engine.cfg, '_c', {}))
@@ -688,7 +692,7 @@ async def get_stats(token: str = Depends(verify_token)):
 
     return {
         "success": stats["success"], "failed": stats["failed"], "retries": stats["retries"],
-        "pwd_blocked": stats.get("pwd_blocked", 0), "phone_verify": stats.get("phone_verify", 0),
+        "pwd_blocked": stats.get("pwd_blocked", 0), "phone_verify": stats.get("phone_verify", 0), "discard_count": stats.get("discard_count", 0),
         "total": total_attempts, "target": stats["target"] if stats["target"] > 0 else "∞",
         "success_rate": f"{success_rate}%", "elapsed": f"{elapsed}s", "avg_time": f"{avg_time}s",
         "progress_pct": f"{progress_pct}%", "is_running": is_running, "mode": current_mode,
@@ -1333,7 +1337,7 @@ def ext_reset_stats(token: str = Depends(verify_token)):
     import time
     core_engine.run_stats.update({
         "success": 0, "failed": 0, "retries": 0,
-        "pwd_blocked": 0, "phone_verify": 0,
+        "pwd_blocked": 0, "phone_verify": 0, "discard_count": 0,
         "start_time": time.time(),
         "target": getattr(core_engine.cfg, 'NORMAL_TARGET_COUNT', 0),
         "ext_is_running": True

@@ -8,9 +8,35 @@ import string
 import time
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
-from urllib.parse import urlparse
+from urllib.parse import unquote, urlparse
 
 SIGNUP_URL = "https://accounts.x.ai/sign-up?redirect=grok-com"
+
+
+def _env_float(name: str, default: float) -> float:
+    try:
+        val = float(str(os.environ.get(name, "") or "").strip())
+        return val if val > 0 else default
+    except Exception:
+        return default
+
+
+def _env_int(name: str, default: int) -> int:
+    try:
+        val = int(float(str(os.environ.get(name, "") or "").strip()))
+        return val if val > 0 else default
+    except Exception:
+        return default
+
+
+# 邮箱验证码等待参数（可用环境变量覆盖）
+# 默认: 30 次 x 5s = 最长 150s 等待验证码邮件
+CODE_FETCH_ATTEMPTS = _env_int("GROK_CODE_FETCH_ATTEMPTS", 30)
+CODE_FETCH_INTERVAL = _env_float("GROK_CODE_FETCH_INTERVAL", 5.0)
+# 验证码阶段允许在总 deadline 之外额外延长的秒数
+CODE_WAIT_GRACE = _env_float("GROK_CODE_WAIT_GRACE", 240.0)
+# 验证码输入页出现的等待轮数（每轮 1s）
+CODE_PAGE_ATTEMPTS = _env_int("GROK_CODE_PAGE_ATTEMPTS", 40)
 
 EMAIL_ENTRY_SELECTORS = [
     'button:has-text("Sign up with email")',
@@ -69,23 +95,31 @@ def _log_fn(log: Optional[Callable[[str], None]]):
 
 
 
-def _build_proxy_config(proxy: Optional[str]) -> Optional[dict]:
-    proxy = (proxy or "").strip()
+def _build_proxy_config(proxy: Optional[str]) -> dict:
     if not proxy:
-        return None
+        return {}
+
     if proxy.startswith("socks5h://"):
-        proxy = "socks5://" + proxy[len("socks5h://"):]
+        proxy = proxy.replace("socks5h://", "socks5://", 1)
     try:
         parsed = urlparse(proxy)
-        if not parsed.scheme or not parsed.hostname or not parsed.port:
+        if not parsed.scheme or not parsed.hostname:
             return {"server": proxy}
-        cfg = {"server": f"{parsed.scheme}://{parsed.hostname}:{parsed.port}"}
+        if ":" in parsed.hostname and not parsed.hostname.startswith("["):
+            host_part = f"[{parsed.hostname}]"
+        else:
+            host_part = parsed.hostname
+
+        port_part = f":{parsed.port}" if parsed.port else ""
+        final_url = f"{parsed.scheme}://{host_part}{port_part}"
+
+        cfg = {"server": final_url}
         if parsed.username:
-            cfg["username"] = parsed.username
-        if parsed.password:
-            cfg["password"] = parsed.password
+            cfg["username"] = unquote(parsed.username)
+        if parsed.password is not None:
+            cfg["password"] = unquote(parsed.password)
         return cfg
-    except Exception:
+    except Exception as e:
         return {"server": proxy}
 
 
@@ -472,7 +506,7 @@ def _signup_on_page(
 
         code_sel = ", ".join(CODE_INPUT_SELECTORS)
         code_ready = False
-        for _ in range(20):
+        for _ in range(CODE_PAGE_ATTEMPTS):
             if time.time() > deadline:
                 break
             if page.query_selector(code_sel):
@@ -485,9 +519,14 @@ def _signup_on_page(
             _dump_debug(page, "code_page_missing")
             return {"ok": False, "error": "验证码页未出现", "url": page.url}
 
+        # 验证码邮件可能延迟，这里允许超出整体 deadline 一段宽限时间，
+        # 否则 GROK_OAUTH_TIMEOUT 会在邮件到达前就把流程掐断。
         code = ""
-        for _attempt in range(1, 10):
-            if time.time() > deadline:
+        code_deadline = max(deadline, time.time() + CODE_WAIT_GRACE)
+        total_attempts = max(1, CODE_FETCH_ATTEMPTS)
+        for _attempt in range(1, total_attempts + 1):
+            if time.time() > code_deadline:
+                lg(f"验证码等待已达上限 ({_attempt - 1}/{total_attempts})")
                 break
             try:
                 code = str(fetch_code() or "").strip()
@@ -496,9 +535,15 @@ def _signup_on_page(
                 code = ""
             if code:
                 break
-            time.sleep(3.0)
+            if _attempt % 5 == 0:
+                lg(f"仍未收到验证码，继续等待 ({_attempt}/{total_attempts})")
+            time.sleep(CODE_FETCH_INTERVAL)
         if not code:
             return {"ok": False, "error": "邮箱验证码超时", "url": page.url}
+
+        # 验证码可能来得比较晚，把后续步骤的 deadline 往后顺延，
+        # 避免拿到码却因为总超时而无法完成提交。
+        deadline = max(deadline, time.time() + 120.0)
 
         clean_code = re.sub(r"[\s\-]+", "", code)
         try:
@@ -864,7 +909,6 @@ def signup_with_camoufox(
         headless = False
     elif env_h in {"1", "true", "yes", "on"}:
         headless = True
-
     return _signup_sync(
         email=email,
         password=password,

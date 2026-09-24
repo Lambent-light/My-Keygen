@@ -201,6 +201,10 @@ const I18N_ZH_HANT_CHARS = {
     '账':'帳','号':'號','库':'庫','邮':'郵','箱':'箱','运':'運','行':'行','页':'頁','总':'總','控':'控','微':'微','软':'軟','云':'雲','网':'網','络':'路','转':'轉','仓':'倉','并':'並','发':'發','与':'與','统':'統','访':'訪','问':'問','码':'碼','请':'請','输':'輸','入':'入','级':'級','录':'錄','间':'間','护':'護','眼':'眼','现':'現','版':'版','点':'點','击':'擊','查':'查','项':'項','检':'檢','退':'退','出':'出','协':'協','议':'議','启':'啟','动':'動','风':'風','拦':'攔','截':'截','败':'敗','却':'卻','域':'域','名':'名','时':'時','实':'實','热':'熱','载':'載','配':'配','置':'置','节':'節','通':'通','讯':'訊','钥':'鑰','远':'遠','确':'確','保':'保','机':'機','导':'導','删':'刪','选':'選','态':'態','禁':'禁','用':'用','当':'當','前':'前','暂':'暫','记':'記','据':'據','权':'權','鉴':'鑑','类':'類','裂':'裂','数':'數','础':'礎','择':'擇','临':'臨','连':'連','仅':'僅','显':'顯','示':'示','进':'進','程':'程','内':'內','计':'計','阈':'閾','值':'值','逻':'邏','辑':'輯','丢':'丟','弃':'棄','异':'異','额':'額','闭':'閉','复':'復','随':'隨','单':'單','专':'專','属':'屬','参':'參','强':'強','国':'國','务':'務','获':'獲','取':'取','层':'層','写':'寫','贴':'貼','资':'資','源':'源','证':'證','损':'損','坏':'壞','应':'應','创':'創','圆':'圓','长':'長','拟':'擬','真':'真','毕':'畢','须':'須','刚':'剛','换':'換','为':'為','过':'過','求':'求','预':'預','测':'測','费':'費','隐':'隱','藏':'藏','关':'關','开':'開','面':'面','板':'板','结':'結','果':'果','馈':'饋','电':'電','子':'子','件':'件','制':'製','粘':'黏','条':'筆','个':'個','这':'這','无':'無','东':'東','滤':'濾','认':'認','执':'執','轻':'輕','则':'則','压':'壓','榨':'榨','释':'釋','侧':'側','际':'際','线':'線','扩':'擴','锁':'鎖','断':'斷','设':'設','标':'標','签':'籤','组':'組','频':'頻','宽':'寬','验':'驗','变':'變','错':'錯','误':'誤','华':'華','龙':'龍','门':'門','凤':'鳳','题':'題','见':'見','乌':'烏','兰':'蘭','说':'說','们':'們','区':'區','来':'來','试':'試','绪':'緒','调':'調','链':'鏈','边':'邊','后':'後','极':'極','员':'員','历':'歷','购':'購','将':'將','对':'對','该':'該','优':'優','于':'於','价':'價','买':'買','彻':'徹','触':'觸','余':'餘','规':'規','轮':'輪','产':'產','满':'滿','负':'負','维':'維','别':'別','迟':'遲','补':'補','尝':'嘗','货':'貨','冲':'衝','会':'會','续':'續','么':'麼','旧':'舊','约':'約','许':'許','准':'準','传':'傳','储':'儲','迁':'遷','键':'鍵','备':'備'
 };
 
+Object.assign(I18N_ZH_HANT_CHARS, {
+    '注':'註','跃':'躍','脱':'脫','适':'適','尽':'盡','缀':'綴','览':'覽','闲':'閒','志':'誌','盘':'碟'
+});
+
 Object.assign(I18N_ZH_HANT_PHRASES, {
     '准备': '準備',
     '模块': '模組',
@@ -224,13 +228,154 @@ Object.assign(I18N_ZH_HANT_PHRASES, {
     '内存': '記憶體(內存)'
 });
 
+// 擴充：台灣用語 + 常見遺漏短語
+Object.assign(I18N_ZH_HANT_PHRASES, {
+    '默认': '預設',
+    '数据': '資料',
+    '数据库': '資料庫',
+    '用户': '使用者',
+    '用户名': '使用者名稱',
+    '变量': '變數',
+    '消息': '訊息',
+    '支持': '支援',
+    '粘贴': '貼上',
+    '当前': '目前',
+    '本地': '本機',
+    '域名': '網域',
+    '注册': '註冊',
+    '注册成功': '註冊成功',
+    '导入': '匯入',
+    '导出': '匯出',
+    '刷新': '重新整理',
+    '保存': '儲存',
+    '获取': '取得',
+    '切换': '切換',
+    '磁盘': '磁碟',
+    '缓存': '快取',
+    '临时': '臨時',
+    '物理': '實體',
+    '批量': '批次',
+    '日志': '日誌',
+    '视频': '影片',
+    '软件': '軟體',
+    '文档': '文件',
+    '服务器': '伺服器',
+    '参数': '參數',
+    '网络': '網路',
+    '登录': '登入',
+    '搜索': '搜尋',
+    '寻': '尋',
+    '适配': '適配',
+    '触发': '觸發',
+    '空闲': '空閒',
+    '预览': '預覽',
+    '前缀': '前綴',
+    '后缀': '後綴',
+    '补零': '補零',
+    '阈值': '閾值',
+    '运行中': '執行中',
+    '活跃中': '活躍中',
+    '待检查': '待檢查',
+    '完整凭证': '完整憑證',
+    '仅注册': '僅註冊',
+    '仅注册成功': '僅註冊成功',
+    '半成品库存': '半成品庫存',
+    '半成品就绪': '半成品就緒',
+    '搜索半成品账号': '搜尋半成品帳號',
+    '脱敏': '脫敏',
+    '邮箱脱敏': '信箱脫敏',
+    '密码脱敏': '密碼脫敏',
+    '一键全部获取': '一鍵全部取得',
+    '批量提取': '批次提取',
+    '导入数据': '匯入資料',
+    '确认导入': '確認匯入',
+    '支持格式': '支援格式',
+    '每行一个': '每行一個',
+    '开启 TG 消息推送': '開啟 TG 訊息推送',
+    '发送测试通知': '發送測試通知',
+    '发送中': '發送中',
+    '单号产出通知模板': '單號產出通知範本',
+    '通知模板': '通知範本',
+    '成功模板': '成功範本',
+    '总结模板': '總結範本',
+    '运行总结': '執行總結',
+    '可用变量': '可用變數',
+    '自动适配': '自動適配',
+    '平均耗时': '平均耗時',
+    '域名注册': '網域註冊',
+    '邀请注册': '邀請註冊',
+    '启动批量域名': '啟動批次網域',
+    '刷新状态': '重新整理狀態',
+    '当前邀请码': '目前邀請碼',
+    '名额用尽': '名額用盡',
+    '自动邀请注册': '自動邀請註冊',
+    '暂无消息': '暫無訊息',
+    '暂无日志': '暫無日誌',
+    '内存预测': '記憶體(內存)預測',
+    '内存占用': '記憶體(內存)占用',
+    '当前消耗内存': '目前消耗記憶體(內存)',
+    '系统物理内存使用率': '系統實體記憶體(內存)使用率',
+    '数据库存储引擎': '資料庫儲存引擎',
+    '数据库连接类型': '資料庫連接類型',
+    '数据库地址': '資料庫位址',
+    '本地 SQLite': '本機 SQLite',
+    '云端 MySQL': '雲端 MySQL',
+    '磁盘清理': '磁碟清理',
+    '磁盘占用': '磁碟占用',
+    '磁盘路径': '磁碟路徑',
+    '磁盘涨上去': '磁碟漲上去',
+    '日志清理': '日誌清理',
+    '清理范围': '清理範圍',
+    '清理输出': '清理輸出',
+    '清理状态': '清理狀態',
+    '刷新清理状态': '重新整理清理狀態',
+    '强制立即清理': '強制立即清理',
+    '按阈值执行清理': '按閾值執行清理',
+    '暂无执行输出': '暫無執行輸出',
+    '套用建议': '套用建議',
+    '套用建议并保存': '套用建議並儲存',
+    '套用建议并重启': '套用建議並重啟',
+    '建议观察': '建議觀察',
+    '可执行建议': '可執行建議',
+    '可预估节省': '可預估節省',
+    '目标预算': '目標預算',
+    '预测分解': '預測分解',
+    '预测中等负载': '預測中等負載',
+    '预测满载峰值': '預測滿載峰值',
+    '最低消耗': '最低消耗',
+    '标准负载': '標準負載',
+    '满载峰值': '滿載峰值',
+    '配置快照': '配置快照',
+    '注册并发线程': '註冊並發線程',
+    '代理池载入规模': '代理池載入規模',
+    '控制台日志行数': '控制台日誌行數',
+    '建议注册并发': '建議註冊併發',
+    '修改后需点左下角重启项目后生效': '修改後需點左下角重啟專案後生效',
+    '历史日志': '歷史日誌',
+    '临时文件': '臨時文件',
+    '强制立即清理': '強制立即清理',
+    '先把历史垃圾收掉': '先把歷史垃圾收掉',
+    '切换到本页后会自动获取完整预测数据': '切換到本頁後會自動取得完整預測資料',
+    '重新估算': '重新估算',
+    '运行平台': '執行平台',
+    '触发阈值': '觸發閾值',
+    '目标磁盘路径': '目標磁碟路徑',
+    '当前磁盘占用': '目前磁碟占用'
+});
+
 const I18N_ZH_HANT_EXCEPTIONS = {
     '控製台': '控制台',
     '杂項與安全控製': '雜項與安全控制',
     '雜項與安全控製': '雜項與安全控制',
     '併發與系统': '並發與系統',
     '併發與系統': '並發與系統',
-    '叢集通訊金鑰': '集群通訊密鑰'
+    '叢集通訊金鑰': '集群通訊密鑰',
+    '註意': '注意',
+    '註視': '注視',
+    '碟點': '盤點',
+    '碟問': '盤問',
+    '誌願': '志願',
+    '誌氣': '志氣'
 };
 
 const I18N_ZH_HANT_KEYS = Object.keys(I18N_ZH_HANT_PHRASES).sort((a, b) => b.length - a.length);
@@ -447,7 +592,7 @@ createApp({
             evtSource: null,
             stats: {
                 success: 0, failed: 0, retries: 0, total: 0, target: 0,
-                pwd_blocked: 0, phone_verify: 0,
+                pwd_blocked: 0, phone_verify: 0, discard_count: 0,
                 success_rate: '0.0%', elapsed: '0.0s', avg_time: '0.0s', progress_pct: '0%',
                 mode: '未启动',
                 memory: { rss_mb: null, predicted_mid_mb: null, predicted_high_mb: null, safety_level: 'unknown', safety_label: '无数据' }
@@ -475,7 +620,7 @@ createApp({
                     reg_only: 0,
                     imgsub2api: 0
                 },
-                cloud: { total: 0, cpa: 0, sub2api: 0, enabled: 0 }
+                cloud: { total: 0, cpa: 0, sub2api: 0, image2api: 0, grok2api: 0, enabled: 0 }
             },
             statsTimer: null,
 
@@ -486,7 +631,7 @@ createApp({
                 cf_key: false, cf_modal_key: false,
                 mail_domains: true, cf_email: true, gpt_base: true, imap_user: true,
                 free_url: true, cm_url: true, cm_email: true, mc_base: true,
-                ai_base: true, cluster_url: true, proxy: true, clash_api: true,
+                ai_base: true, cluster_url: true, proxy: true, clash_api: true,checkProxy:true,
                 clash_test: true, tg_token: false, tg_chatid: false, cpa_url: true, sub_url: true,
                 cluster_secret: false, hero_key: false, duck_token: false, duck_cookie: false,
                 smsbower_key: false,fivesim_key: false,smsbower_cookie: false,
@@ -501,7 +646,9 @@ createApp({
                 image2api_url: true,
                 image2api_key: false,
                 dropmail: false,
-                emailnator: false
+                emailnator: false,
+                grok2api_url: true,
+                grok2api_pass: false
             },
 
             toasts: [],
@@ -528,7 +675,7 @@ createApp({
             cloudAccounts: [],
             rawCloudAccounts: [],
             selectedCloud: [],
-            cloudFilters: ['sub2api', 'cpa', "image2api"],
+            cloudFilters: ['sub2api', 'cpa', "image2api", "grok2api"],
             showCloudPlaintext: false,
             cloudPage: 1,
             cloudPageSize: 10,
@@ -724,7 +871,8 @@ createApp({
             const labels = {
                 sub2api: 'Sub2API',
                 cpa: 'CPA',
-                image2api: 'Image2API'
+                image2api: 'Image2API',
+                grok2api: 'Grok2API'
             };
             return labels[this.cloudFetchState.currentType] || this.cloudFetchState.currentType;
         },
@@ -812,6 +960,9 @@ createApp({
                 if (left.domainIndex !== right.domainIndex) return left.domainIndex - right.domainIndex;
                 return String(a?.domain || '').localeCompare(String(b?.domain || ''));
             });
+        },
+        grokMode() {
+            return !!this.config && this.config.reg_provider === 'grok';
         }
     },
     methods: {
@@ -1698,6 +1849,44 @@ createApp({
                         this.config.image2api_mode.img_only_mode = false;
                     }
                 }
+                if (!this.config.grok2api || typeof this.config.grok2api !== 'object') {
+                    this.config.grok2api = {};
+                }
+                const grokDefaults = {
+                    enable: false,
+                    auto_check: true,
+                    save_to_local: true,
+                    api_url: '',
+                    admin_password: '',
+                    min_accounts_threshold: 20,
+                    batch_reg_count: 1,
+                    min_remaining_weekly_percent: 0,
+                    remove_on_limit_reached: true,
+                    remove_dead_accounts: true,
+                    enable_token_revive: false,
+                    check_interval_minutes: 60,
+                    threads: 5,
+                    retain_reg_only: false,
+                    auto_re_oauth: false,
+                    account_concurrency: 10,
+                    account_load_factor: 10,
+                    account_priority: 1,
+                    account_rate_multiplier: 1.0,
+                    account_group_ids: '',
+                    enable_ws_mode: true,
+                    test_model: 'grok-4.5',
+                    default_proxy: '',
+                    auto_import_after_register: false,
+                    import_sso_as_grok_web: false,
+                    sso_only_mode: false
+                };
+                Object.entries(grokDefaults).forEach(([key, value]) => {
+                    if (this.config.grok2api[key] === undefined) this.config.grok2api[key] = value;
+                });
+                if (Array.isArray(this.config.grok2api.default_proxy)) {
+                    this.config.grok2api.default_proxy = this.config.grok2api.default_proxy.join('\n');
+                }
+
                 if (!this.config.team_mode) {
                     this.config.team_mode = { enable: false, overspeed: false };
                 } else {
@@ -2517,6 +2706,7 @@ createApp({
                         this.showToast("已启动【协议】模式", "success");
                         let mode = 'normal';
                         if (this.config?.cpa_mode?.enable) mode = 'cpa';
+                        if (this.config?.grok2api?.enable) mode = 'grok2api';
                         if (this.config?.sub2api_mode?.enable) mode = 'sub2api';
                         await this.startTask(mode);
                     }
@@ -2701,6 +2891,11 @@ createApp({
                 //     this.showToast("⚠️ 该账号已在 Image2API 平台，无需重复推送！", "warning"); return;
                 // }
             }
+            if (action === 'grok2api-import') {
+                if (!this.config.grok2api || !this.config.grok2api.admin_password) {
+                    this.showToast("🚫 无法导入：请在设置页配置 Grok2API 地址和密码", "warning"); return;
+                }
+            }
             this.currentTab = 'console';
             try {
                 const res = await this.authFetch('/api/account/action', {
@@ -2708,7 +2903,7 @@ createApp({
                 });
                 const result = await res.json();
                 this.showToast(result.message, result.status);
-                if (action === 'push' || action === 'push_sub2api' || action === 'push_image2api') {
+                if (action === 'push' || action === 'push_sub2api' || action === 'push_image2api' || action === 'grok2api-import') {
                     if (typeof this.fetchAccounts === 'function') this.fetchAccounts();
                     if (typeof this.fetchInventoryStats === 'function') this.fetchInventoryStats();
                 }
@@ -3468,7 +3663,7 @@ async exportSub2Api() {
                 this.cloudAccounts = [];
                 this.cloudTotal = 0;
                 this.inventoryStats.cloud = {
-                    total: 0, enabled: 0, cpa: 0, cpa_active: 0, cpa_disabled: 0, sub2api: 0, sub2api_active: 0, sub2api_disabled: 0, image2api: 0, image2api_active: 0, image2api_disabled: 0
+                    total: 0, enabled: 0, cpa: 0, cpa_active: 0, cpa_disabled: 0, sub2api: 0, sub2api_active: 0, sub2api_disabled: 0, image2api: 0, image2api_active: 0, image2api_disabled: 0, grok2api: 0, grok2api_active: 0, grok2api_disabled: 0
                 };
                 this.cloudFetchState = { loading: false, currentType: '', completed: 0, total: 0, message: '未选择平台' };
                 return;
@@ -3498,8 +3693,8 @@ async exportSub2Api() {
                 }
                 this.rawCloudAccounts = combined.map(acc => ({
                     ...acc,
-                    last_check: this.localCheckTimes[acc.id] || acc.last_check || '-',
-                    details: acc.account_type === 'image2api' ? (acc.details || {}) : (this.localCloudDetails[acc.id] || acc.details || {}),
+                    last_check: this.localCheckTimes[`${acc.account_type}|${acc.id}`] || this.localCheckTimes[acc.id] || acc.last_check || '-',
+                    details: acc.account_type === 'image2api' ? (acc.details || {}) : (this.localCloudDetails[`${acc.account_type}|${acc.id}`] || this.localCloudDetails[acc.id] || acc.details || {}),
                     _loading: null
                 }));
                 this.inventoryStats.cloud = this.computeCloudStats(this.rawCloudAccounts);
@@ -3513,7 +3708,7 @@ async exportSub2Api() {
                 if (this.isLoggedIn && e.message !== "Unauthorized") {
                     this.showToast("获取云端数据失败", "error");
                     this.inventoryStats.cloud = {
-                        total: 0, enabled: 0, cpa: 0, cpa_active: 0, cpa_disabled: 0, sub2api: 0, sub2api_active: 0, sub2api_disabled: 0, image2api: 0, image2api_active: 0, image2api_disabled: 0
+                        total: 0, enabled: 0, cpa: 0, cpa_active: 0, cpa_disabled: 0, sub2api: 0, sub2api_active: 0, sub2api_disabled: 0, image2api: 0, image2api_active: 0, image2api_disabled: 0, grok2api: 0, grok2api_active: 0, grok2api_disabled: 0
                     };
                     this.rawCloudAccounts = [];
                     this.cloudAccounts = [];
@@ -3539,7 +3734,10 @@ async exportSub2Api() {
                 sub2api_disabled: rows.filter(item => isType(item, 'sub2api') && !isActive(item)).length,
                 image2api: rows.filter(item => isType(item, 'image2api')).length,
                 image2api_active: rows.filter(item => isType(item, 'image2api') && isActive(item)).length,
-                image2api_disabled: rows.filter(item => isType(item, 'image2api') && !isActive(item)).length
+                image2api_disabled: rows.filter(item => isType(item, 'image2api') && !isActive(item)).length,
+                grok2api: rows.filter(item => isType(item, 'grok2api')).length,
+                grok2api_active: rows.filter(item => isType(item, 'grok2api') && isActive(item)).length,
+                grok2api_disabled: rows.filter(item => isType(item, 'grok2api') && !isActive(item)).length
             };
         },
         applyCloudAccountView() {
@@ -3578,8 +3776,11 @@ async exportSub2Api() {
                     body: JSON.stringify({ accounts: [{id: String(acc.id), type: acc.account_type, platform: (acc.details && (acc.details.platform || acc.details.type)) || ''}], action: action })
                 });
                 const result = await res.json();
-                if (result.updated_details && result.updated_details[acc.id]) {
-                    acc.details = Object.assign({}, acc.details, result.updated_details[acc.id]);
+                const detailKey = `${acc.account_type}|${acc.id}`;
+                const updatedDetail = result.updated_details && (result.updated_details[detailKey] || result.updated_details[acc.id]);
+                if (updatedDetail) {
+                    acc.details = Object.assign({}, acc.details, updatedDetail);
+                    this.localCloudDetails[detailKey] = acc.details;
                     this.localCloudDetails[acc.id] = acc.details;
                 }
                 if (action === 'enable' && result.status !== 'error') acc.status = 'active';
@@ -3588,6 +3789,7 @@ async exportSub2Api() {
                 if (action === 'check') {
                     this.currentTab = 'console';
             const now = formatMainlandDateTime(new Date());
+                    this.localCheckTimes[`${acc.account_type}|${acc.id}`] = now;
                     this.localCheckTimes[acc.id] = now;
                     acc.last_check = now;
 
@@ -3613,18 +3815,20 @@ async exportSub2Api() {
         },
         filterByCard(platformType, status) {
             if (platformType === 'all') {
-                this.cloudFilters = ['sub2api', 'cpa', 'image2api'];
+                this.cloudFilters = ['sub2api', 'cpa', 'image2api', 'grok2api'];
             } else if (platformType === 'cpa') {
                 this.cloudFilters = ['cpa'];
             } else if (platformType === 'sub2api') {
                 this.cloudFilters = ['sub2api'];
             }else if (platformType === 'image2api') {
                 this.cloudFilters = ['image2api']
+            }else if (platformType === 'grok2api') {
+                this.cloudFilters = ['grok2api']
             }
             this.cloudStatusFilter = status || 'all';
             this.cloudPage = 1;
             this.fetchCloudAccounts();
-            const typeName = platformType === 'all' ? '全部平台' : (platformType === 'cpa' ? 'CPA' : (platformType === 'sub2api' ? 'Sub2API' : 'Image2API'));
+            const typeName = platformType === 'all' ? '全部平台' : (platformType === 'cpa' ? 'CPA' : (platformType === 'sub2api' ? 'Sub2API' : (platformType === 'grok2api' ? 'Grok2API' : 'Image2API')));
             const statusName = status === 'active' ? '存活' : (status === 'disabled' ? '失效' : '全部');
             this.showToast(`已筛选: ${typeName} - ${statusName}账号`, 'info');
         },
@@ -3652,15 +3856,21 @@ async exportSub2Api() {
                 if (result.updated_details) {
                     actionAccounts.forEach(selected => {
                         const targetAcc = this.cloudAccounts.find(a => String(a.id) === String(selected.id) && a.account_type === selected.type);
-                        if (targetAcc && result.updated_details[selected.id]) {
-                            targetAcc.details = Object.assign({}, targetAcc.details, result.updated_details[selected.id]);
+                        const detailKey = `${selected.type}|${selected.id}`;
+                        const updatedDetail = result.updated_details[detailKey] || result.updated_details[selected.id];
+                        if (targetAcc && updatedDetail) {
+                            targetAcc.details = Object.assign({}, targetAcc.details, updatedDetail);
+                            this.localCloudDetails[detailKey] = targetAcc.details;
                             this.localCloudDetails[selected.id] = targetAcc.details;
                         }
                     });
                 }
                 if (action === 'check') {
                     const now = formatMainlandDateTime(new Date());
-                    actionAccounts.forEach(c => { this.localCheckTimes[c.id] = now; });
+                    actionAccounts.forEach(c => {
+                        this.localCheckTimes[`${c.type}|${c.id}`] = now;
+                        this.localCheckTimes[c.id] = now;
+                    });
                 }
 
                 this.showToast(result.message, result.status);

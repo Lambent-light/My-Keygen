@@ -1,4 +1,4 @@
-﻿import os
+import os
 import queue
 import threading
 import yaml
@@ -31,6 +31,46 @@ def format_docker_url(url: str) -> str:
     return url
 
 
+def _bracket_proxy_host(hostname: str) -> str:
+    host = str(hostname or "").strip()
+    if not host:
+        return ""
+    if ":" in host and not host.startswith("["):
+        return f"[{host}]"
+    return host
+
+
+def _looks_like_ipv6_host(host: str) -> bool:
+    raw = str(host or "").strip()
+    if raw.startswith("[") and raw.endswith("]") and len(raw) > 2:
+        raw = raw[1:-1]
+    if ":" not in raw:
+        return False
+    for group in raw.split(":"):
+        if not group:
+            continue
+        if "." in group:
+            octets = group.split(".")
+            if len(octets) != 4:
+                return False
+            try:
+                if any(int(part) < 0 or int(part) > 255 for part in octets):
+                    return False
+            except ValueError:
+                return False
+            continue
+        if len(group) > 4 or any(ch not in "0123456789abcdefABCDEF" for ch in group):
+            return False
+    return True
+
+
+def _encode_proxy_auth(username: str, password: Optional[str] = None) -> str:
+    auth = urllib.parse.quote(urllib.parse.unquote(str(username)), safe="")
+    if password is not None:
+        auth += ":" + urllib.parse.quote(urllib.parse.unquote(str(password)), safe="")
+    return auth + "@"
+
+
 def normalize_raw_proxy_entry(entry: str) -> str:
     value = str(entry or "").strip()
     if not value or value.startswith("#"):
@@ -46,19 +86,36 @@ def normalize_raw_proxy_entry(entry: str) -> str:
         if not parsed.hostname:
             return ""
 
+        host_part = _bracket_proxy_host(parsed.hostname)
         if parsed.username is not None:
-            auth = urllib.parse.quote(urllib.parse.unquote(parsed.username), safe="")
-            if parsed.password is not None:
-                auth += ":" + urllib.parse.quote(urllib.parse.unquote(parsed.password), safe="")
-            auth += "@"
+            auth = _encode_proxy_auth(parsed.username, parsed.password)
         else:
             auth = ""
 
         default_port = 1080 if scheme == "socks5h" else 8080
-        return format_docker_url(f"{scheme}://{auth}{parsed.hostname}:{parsed.port or default_port}")
+        return format_docker_url(f"{scheme}://{auth}{host_part}:{parsed.port or default_port}")
 
     if "@" in value:
         return normalize_raw_proxy_entry(f"socks5h://{value}")
+
+    if value.startswith("["):
+        end = value.find("]")
+        if end == -1 or end + 1 >= len(value) or value[end + 1] != ":":
+            return ""
+        host = value[: end + 1]
+        rest_parts = value[end + 2 :].split(":")
+        if len(rest_parts) == 1:
+            port = rest_parts[0].strip()
+            if host and port:
+                return format_docker_url(f"socks5h://{host}:{port}")
+            return ""
+        if len(rest_parts) >= 3:
+            port = rest_parts[0].strip()
+            username = rest_parts[1].strip()
+            password = ":".join(rest_parts[2:]).strip()
+            if host and port and username:
+                return format_docker_url(f"socks5h://{_encode_proxy_auth(username, password)}{host}:{port}")
+        return ""
 
     parts = value.split(":")
     if len(parts) == 2:
@@ -69,18 +126,20 @@ def normalize_raw_proxy_entry(entry: str) -> str:
             return format_docker_url(f"socks5h://{host}:{port}")
         return ""
 
+    if len(parts) >= 3:
+        port = parts[-1].strip()
+        host = ":".join(parts[:-1]).strip()
+        if port.isdigit() and _looks_like_ipv6_host(host):
+            return format_docker_url(f"socks5h://{_bracket_proxy_host(host)}:{port}")
+
     if len(parts) >= 4:
         host = parts[0].strip()
         port = parts[1].strip()
         username = parts[2].strip()
         password = ":".join(parts[3:]).strip()
         if host and port and username:
-            auth = urllib.parse.quote(urllib.parse.unquote(username), safe="")
-            if password:
-                auth += ":" + urllib.parse.quote(urllib.parse.unquote(password), safe="")
-            return format_docker_url(f"socks5h://{auth}@{host}:{port}")
+            return format_docker_url(f"socks5h://{_encode_proxy_auth(username, password)}{host}:{port}")
     return ""
-
 
 def normalize_raw_proxy_list(entries) -> list:
     normalized = []
@@ -178,7 +237,7 @@ def init_config():
                 print(f"[{ts()}] [WARNING] 自动补全配置文件写入失败: {e}")
 
     return user_config
-APP_VERSION = "v18.0.3"
+APP_VERSION = "v18.2.0"
 _c: dict = {}
 WEB_PASSWORD: str = "admin"
 RETAIN_REG_ONLY: bool = False
@@ -198,6 +257,7 @@ MAIL_DOMAIN_PREFER_LOW_FAILURE_MODE: bool = False
 MAIL_DOMAIN_FAILURE_TYPES: list[str] = ["discarded_email"]
 MAIL_DOMAIN_FAIL_THRESHOLD: int = 3
 MAIL_DOMAIN_FAIL_COOLDOWN_SEC: int = 600
+DISCARD_ON_DOWNGRADE: bool = True
 GPTMAIL_BASE: str = ""
 ADMIN_AUTH: str = ""
 MOAKT_PREFERRED_DOMAIN: str = ""
@@ -226,8 +286,12 @@ CM_WEBHOOK_SECRET: str = ""
 MC_API_BASE: str = ""
 MC_KEY: str = ""
 DEFAULT_PROXY: str = ""
+GROK_INSPECT_PROXY = ""
 ENABLE_MULTI_THREAD_REG: bool = False
 REG_THREADS: int = 3
+GROK_BROWSER_RECYCLE_ENABLED: bool = True
+GROK_BROWSER_RECYCLE_TASK_LIMIT: int = 50
+GROK_BROWSER_RECYCLE_MINUTES_LIMIT: int = 120
 MAX_OTP_RETRIES: int = 5
 OTP_POLL_MAX_ATTEMPTS: int = 20
 USE_PROXY_FOR_EMAIL: bool = False
@@ -281,6 +345,34 @@ IMAGE2API_URL: str = ""
 IMAGE2API_KEY: str = ""
 IMAGE2API_RETAIN_REG_ONLY: bool = False
 IMAGE2API_IMG_ONLY_MODE: bool = False
+
+GROK2API_URL: str = ""
+GROK2API_ADMIN_PASSWORD: str = ""
+ENABLE_GROK2API_MODE: bool = False
+SAVE_TO_LOCAL_IN_GROK2API_MODE: bool = True
+GROK2API_MIN_THRESHOLD: int = 20
+GROK2API_BATCH_COUNT: int = 1
+GROK2API_MIN_REMAINING_WEEKLY_PERCENT: int = 0
+GROK2API_REMOVE_ON_LIMIT_REACHED: bool = True
+GROK2API_REMOVE_DEAD_ACCOUNTS: bool = True
+GROK2API_ENABLE_TOKEN_REVIVE: bool = False
+GROK2API_CHECK_INTERVAL: int = 60
+GROK2API_THREADS: int = 5
+GROK2API_AUTO_CHECK: bool = True
+GROK2API_RETAIN_REG_ONLY: bool = False
+GROK2API_AUTO_RE_OAUTH: bool = False
+GROK2API_ACCOUNT_CONCURRENCY: int = 10
+GROK2API_ACCOUNT_LOAD_FACTOR: int = 10
+GROK2API_ACCOUNT_PRIORITY: int = 1
+GROK2API_ACCOUNT_RATE_MULTIPLIER: float = 1.0
+GROK2API_ACCOUNT_GROUP_IDS: list = []
+GROK2API_ENABLE_WS_MODE: bool = True
+GROK2API_TEST_MODEL: str = "grok-4.5"
+GROK2API_DEFAULT_PROXY: str = ""
+GROK2API_DEFAULT_PROXY_POOL: list = []
+GROK2API_AUTO_IMPORT_AFTER_REGISTER: bool = False
+GROK2API_IMPORT_SSO_AS_GROK_WEB: bool = False
+GROK2API_SSO_ONLY_MODE: bool = False
 
 LUCKMAIL_PREFERRED_DOMAIN: str = ""
 LUCKMAIL_EMAIL_TYPE: str = ""
@@ -459,9 +551,10 @@ def reload_all_configs(new_config_dict=None):
     global FREEMAIL_API_URL, FREEMAIL_API_TOKEN, FREEMAIL_LOCAL_WEBHOOK, FREEMAIL_WEBHOOK_SECRET
     global CM_API_URL, CM_ADMIN_EMAIL, CM_ADMIN_PASS, CM_LOCAL_WEBHOOK, CM_WEBHOOK_SECRET
     global MC_API_BASE, MC_KEY
-    global DEFAULT_PROXY
+    global DEFAULT_PROXY, GROK_INSPECT_PROXY
     global SUB_DOMAIN_LEVEL, RANDOM_SUB_DOMAIN_LEVEL
     global ENABLE_MULTI_THREAD_REG, REG_THREADS, MAX_OTP_RETRIES, OTP_POLL_MAX_ATTEMPTS
+    global GROK_BROWSER_RECYCLE_ENABLED, GROK_BROWSER_RECYCLE_TASK_LIMIT, GROK_BROWSER_RECYCLE_MINUTES_LIMIT
     global USE_PROXY_FOR_EMAIL, ENABLE_EMAIL_MASKING
     global LOGIN_DELAY_MIN, LOGIN_DELAY_MAX
     global ENABLE_CPA_MODE, SAVE_TO_LOCAL_IN_CPA_MODE
@@ -480,6 +573,16 @@ def reload_all_configs(new_config_dict=None):
     global SUB2API_DEFAULT_PROXY_POOL
     global SUB2API_ACCOUNT_RATE_MULTIPLIER, SUB2API_ACCOUNT_GROUP_IDS, SUB2API_ENABLE_WS_MODE
     global ENABLE_IMAGE2API_MODE, IMAGE2API_URL, IMAGE2API_KEY, IMAGE2API_RETAIN_REG_ONLY, IMAGE2API_IMG_ONLY_MODE
+    global GROK2API_URL, GROK2API_ADMIN_PASSWORD, GROK2API_AUTO_IMPORT_AFTER_REGISTER, GROK2API_IMPORT_SSO_AS_GROK_WEB
+    global GROK2API_SSO_ONLY_MODE
+    global ENABLE_GROK2API_MODE, SAVE_TO_LOCAL_IN_GROK2API_MODE
+    global GROK2API_MIN_THRESHOLD, GROK2API_BATCH_COUNT, GROK2API_MIN_REMAINING_WEEKLY_PERCENT
+    global GROK2API_REMOVE_ON_LIMIT_REACHED, GROK2API_REMOVE_DEAD_ACCOUNTS, GROK2API_ENABLE_TOKEN_REVIVE
+    global GROK2API_CHECK_INTERVAL, GROK2API_THREADS, GROK2API_AUTO_CHECK
+    global GROK2API_RETAIN_REG_ONLY, GROK2API_AUTO_RE_OAUTH
+    global GROK2API_ACCOUNT_CONCURRENCY, GROK2API_ACCOUNT_LOAD_FACTOR, GROK2API_ACCOUNT_PRIORITY
+    global GROK2API_ACCOUNT_RATE_MULTIPLIER, GROK2API_ACCOUNT_GROUP_IDS, GROK2API_ENABLE_WS_MODE
+    global GROK2API_TEST_MODEL, GROK2API_DEFAULT_PROXY, GROK2API_DEFAULT_PROXY_POOL
     global CF_API_EMAIL, CF_API_KEY, DOMAIN_REGISTER, DIGITALPLAT
     global LUCKMAIL_API_KEY, LUCKMAIL_PREFERRED_DOMAIN, LUCKMAIL_EMAIL_TYPE, LUCKMAIL_VARIANT_MODE, LUCKMAIL_REUSE_PURCHASED, LUCKMAIL_TAG_ID
     global HERO_SMS_ENABLED, HERO_SMS_API_KEY, HERO_SMS_BASE_URL, HERO_SMS_COUNTRY, HERO_SMS_SERVICE
@@ -505,7 +608,7 @@ def reload_all_configs(new_config_dict=None):
     global REG_MODE
     global REG_PROVIDER
     # Grok 仅加载可配置项；其余固定常量不在此处改写
-    global GROK_OAUTH_TIMEOUT
+    global GROK_OAUTH_TIMEOUT, DISCARD_ON_DOWNGRADE
     global LOCAL_MS_ENABLE_FISSION, LOCAL_MS_MASTER_EMAIL, LOCAL_MS_PASSWORD, LOCAL_MS_CLIENT_ID, LOCAL_MS_REFRESH_TOKEN, LOCAL_MS_POOL_FISSION
     global LOCAL_MS_SUFFIX_MODE, LOCAL_MS_SUFFIX_LEN_MIN, LOCAL_MS_SUFFIX_LEN_MAX
     global DB_TYPE, MYSQL_CFG
@@ -645,7 +748,7 @@ def reload_all_configs(new_config_dict=None):
     WEB_PASSWORD = str(_c.get("web_password", "admin")).strip()
     RETAIN_REG_ONLY = safe_bool(_c.get("retain_reg_only", False))
     ENABLE_CODEX_AGENT_IDENTITY = safe_bool(_c.get("enable_codex_agent_identity", False))
-
+    DISCARD_ON_DOWNGRADE = safe_bool(_c.get("discard_on_downgrade", True))
     EMAIL_API_MODE = _c.get("email_api_mode", "cloudflare_temp_email")
     MAIL_DOMAINS = _c.get("mail_domains", "")
     DISABLED_MAIL_DOMAINS = normalize_domain_list(_c.get("disabled_mail_domains", []))
@@ -742,9 +845,12 @@ def reload_all_configs(new_config_dict=None):
     USE_ORIGINAL_PASSWORD_FLOW = bool(_ocpa.get("use_original_password_flow", False))
 
     DEFAULT_PROXY = format_docker_url(_c.get("default_proxy", ""))
-
-    ENABLE_MULTI_THREAD_REG = _c.get("enable_multi_thread_reg", False)
-    REG_THREADS = _c.get("reg_threads", 3)
+    GROK_INSPECT_PROXY = format_docker_url(_c.get("check_proxy", ""))
+    ENABLE_MULTI_THREAD_REG = safe_bool(_c.get("enable_multi_thread_reg", False))
+    REG_THREADS = max(1, int(_c.get("reg_threads", 3) or 3))
+    GROK_BROWSER_RECYCLE_ENABLED = safe_bool(_c.get("grok_browser_recycle_enabled", True), default=True)
+    GROK_BROWSER_RECYCLE_TASK_LIMIT = max(0, int(_c.get("grok_browser_recycle_task_limit", 50) or 0))
+    GROK_BROWSER_RECYCLE_MINUTES_LIMIT = max(0, int(_c.get("grok_browser_recycle_minutes_limit", 120) or 0))
     MAX_OTP_RETRIES = _c.get("max_otp_retries", 5)
     OTP_POLL_MAX_ATTEMPTS = _c.get("otp_poll_max_attempts", 20)
     USE_PROXY_FOR_EMAIL = _c.get("use_proxy_for_email", False)
@@ -810,6 +916,49 @@ def reload_all_configs(new_config_dict=None):
     IMAGE2API_KEY = str(_image2api.get("api_key", "")).strip()
     IMAGE2API_RETAIN_REG_ONLY = safe_bool(_image2api.get("retain_reg_only", False))
     IMAGE2API_IMG_ONLY_MODE = safe_bool(_image2api.get("img_only_mode", False))
+
+    _grok2api = _c.get("grok2api", {}) if isinstance(_c.get("grok2api"), dict) else {}
+    ENABLE_GROK2API_MODE = safe_bool(_grok2api.get("enable", False))
+    SAVE_TO_LOCAL_IN_GROK2API_MODE = safe_bool(_grok2api.get("save_to_local", True), default=True)
+    GROK2API_URL = format_docker_url(str(_grok2api.get("api_url", "")).strip()).rstrip("/")
+    GROK2API_ADMIN_PASSWORD = str(_grok2api.get("admin_password", "")).strip()
+    GROK2API_MIN_THRESHOLD = safe_int(_grok2api.get("min_accounts_threshold", 20), 20, minimum=0)
+    GROK2API_BATCH_COUNT = safe_int(_grok2api.get("batch_reg_count", 1), 1, minimum=1)
+    GROK2API_MIN_REMAINING_WEEKLY_PERCENT = safe_int(_grok2api.get("min_remaining_weekly_percent", 0), 0, minimum=0)
+    GROK2API_MIN_REMAINING_WEEKLY_PERCENT = min(100, GROK2API_MIN_REMAINING_WEEKLY_PERCENT)
+    GROK2API_REMOVE_ON_LIMIT_REACHED = safe_bool(_grok2api.get("remove_on_limit_reached", True), default=True)
+    GROK2API_REMOVE_DEAD_ACCOUNTS = safe_bool(_grok2api.get("remove_dead_accounts", True), default=True)
+    GROK2API_ENABLE_TOKEN_REVIVE = safe_bool(_grok2api.get("enable_token_revive", False))
+    GROK2API_CHECK_INTERVAL = safe_int(_grok2api.get("check_interval_minutes", 60), 60, minimum=1)
+    GROK2API_THREADS = safe_int(_grok2api.get("threads", 5), 5, minimum=1)
+    GROK2API_AUTO_CHECK = safe_bool(_grok2api.get("auto_check", True), default=True)
+    GROK2API_RETAIN_REG_ONLY = safe_bool(_grok2api.get("retain_reg_only", False))
+    GROK2API_AUTO_RE_OAUTH = safe_bool(_grok2api.get("auto_re_oauth", False))
+    GROK2API_ACCOUNT_CONCURRENCY = safe_int(_grok2api.get("account_concurrency", 10), 10, minimum=1)
+    GROK2API_ACCOUNT_LOAD_FACTOR = safe_int(_grok2api.get("account_load_factor", 10), 10, minimum=1)
+    GROK2API_ACCOUNT_PRIORITY = safe_int(_grok2api.get("account_priority", 1), 1, minimum=1)
+    GROK2API_ACCOUNT_RATE_MULTIPLIER = safe_float(_grok2api.get("account_rate_multiplier", 1.0), 1.0, minimum=0.0)
+    GROK2API_ACCOUNT_GROUP_IDS = parse_group_ids(_grok2api.get("account_group_ids", ""))
+    GROK2API_ENABLE_WS_MODE = safe_bool(_grok2api.get("enable_ws_mode", True), default=True)
+    GROK2API_TEST_MODEL = str(_grok2api.get("test_model", "grok-4.5") or "grok-4.5").strip()
+    raw_grok2api_default_proxy = _grok2api.get("default_proxy", "")
+    if isinstance(raw_grok2api_default_proxy, list):
+        GROK2API_DEFAULT_PROXY = "\n".join(str(item).strip() for item in raw_grok2api_default_proxy if str(item).strip())
+    else:
+        GROK2API_DEFAULT_PROXY = str(raw_grok2api_default_proxy or "")
+    GROK2API_DEFAULT_PROXY_POOL = [
+        format_docker_url(item)
+        for item in get_valid_sub2api_proxy_urls(raw_grok2api_default_proxy)
+    ]
+    GROK2API_AUTO_IMPORT_AFTER_REGISTER = safe_bool(
+        _grok2api.get("auto_import_after_register", ENABLE_GROK2API_MODE)
+    )
+    GROK2API_IMPORT_SSO_AS_GROK_WEB = safe_bool(
+        _grok2api.get("import_sso_as_grok_web", False)
+    )
+    GROK2API_SSO_ONLY_MODE = safe_bool(
+        _grok2api.get("sso_only_mode", False)
+    )
 
     reset_sub2api_proxy_rotation()
     _normal = _c.get("normal_mode", {})
@@ -1042,4 +1191,3 @@ def reload_all_configs(new_config_dict=None):
     print(f"[{ts()}] [系统] 核心配置已完成同步。")
 
 reload_all_configs()
-
